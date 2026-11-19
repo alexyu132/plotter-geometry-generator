@@ -1,0 +1,2968 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Plotter Geometry Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #eceee9;
+        --panel: #f7f8f5;
+        --panel-2: #eef0ea;
+        --ink: #1c1f22;
+        --muted: #5d6570;
+        --faint: #8a929c;
+        --line: #d3d7cf;
+        --line-strong: #b9beb2;
+        --accent: #2d4e9e;
+        --accent-ink: #ffffff;
+        --accent-soft: rgba(45, 78, 158, 0.10);
+        --warn: #b3541e;
+        --paper: #ffffff;
+        --stage-dot: rgba(28, 31, 34, 0.10);
+        --shadow: 0 10px 34px rgba(24, 28, 32, 0.16), 0 2px 8px rgba(24, 28, 32, 0.10);
+        --radius: 10px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #101215;
+          --panel: #17191d;
+          --panel-2: #1e2126;
+          --ink: #e8eae6;
+          --muted: #a3abb4;
+          --faint: #767e88;
+          --line: #2c3036;
+          --line-strong: #3d434b;
+          --accent: #8fb0ff;
+          --accent-ink: #10131c;
+          --accent-soft: rgba(143, 176, 255, 0.13);
+          --warn: #e08a4e;
+          --stage-dot: rgba(232, 234, 230, 0.09);
+          --shadow: 0 10px 34px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        font-size: 15px;
+        line-height: 1.45;
+        -webkit-font-smoothing: antialiased;
+      }
+      button, select, input { font: inherit; color: inherit; }
+      button, select, input[type="range"], input[type="number"] { min-height: 2.25rem; }
+      a { color: var(--accent); }
+
+      .app {
+        display: grid;
+        grid-template-columns: 348px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      /* ---------- control panel ---------- */
+      .panel {
+        background: var(--panel);
+        border-right: 1px solid var(--line);
+        padding: 18px 18px 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+      }
+      .panel h2 {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.11em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin: 0 0 10px;
+      }
+      .panel section { margin: 0; }
+
+      .pattern-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+      }
+      .pattern-btn {
+        appearance: none;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        border-radius: 8px;
+        padding: 8px 10px;
+        text-align: left;
+        cursor: pointer;
+        font-size: 13.5px;
+        font-weight: 500;
+        line-height: 1.25;
+        min-height: 2.5rem;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .pattern-btn:hover { border-color: var(--line-strong); }
+      .pattern-btn.active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        color: var(--ink);
+        box-shadow: inset 0 0 0 1px var(--accent);
+      }
+      .pattern-btn .dot {
+        width: 8px; height: 8px; border-radius: 50%;
+        background: var(--faint); flex: none;
+      }
+      .pattern-btn.active .dot { background: var(--accent); }
+      .pattern-btn.wide { grid-column: 1 / -1; }
+
+      .param { margin-bottom: 13px; }
+      .param-head {
+        display: flex; justify-content: space-between; align-items: baseline;
+        gap: 10px; margin-bottom: 3px;
+      }
+      .param-head label { font-size: 13.5px; font-weight: 500; }
+      .param-val {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 12.5px; color: var(--muted); white-space: nowrap;
+      }
+      .param input[type="range"] {
+        width: 100%; margin: 0; padding: 0;
+        accent-color: var(--accent); min-height: 1.6rem; cursor: pointer;
+      }
+      .param select {
+        width: 100%; padding: 6px 8px;
+        background: var(--panel-2); border: 1px solid var(--line);
+        border-radius: 7px; cursor: pointer;
+      }
+      .param-check { display: flex; align-items: center; gap: 9px; min-height: 2.25rem; cursor: pointer; }
+      .param-check input { width: 18px; height: 18px; accent-color: var(--accent); flex: none; }
+      .param-check span { font-size: 13.5px; font-weight: 500; }
+      .param-note { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+      .pen-slots { display: flex; flex-direction: column; gap: 14px; }
+      .pen-slot { display: flex; flex-direction: column; gap: 6px; }
+      .pen-slot-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+      .pen-slot-head .slot-label { font-size: 13px; font-weight: 500; }
+      .pen-picker { display: grid; grid-template-columns: repeat(8, 26px); gap: 6px; }
+      .pen-chip {
+        width: 26px; height: 26px; border-radius: 50%;
+        border: 2px solid transparent;
+        padding: 0; cursor: pointer; flex: none;
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.18);
+        min-height: 26px;
+      }
+      .pen-chip.selected { border-color: var(--ink); transform: scale(1.08); }
+      .pen-name {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 12px; color: var(--muted);
+      }
+
+      .pen-toggles-title { font-size: 13.5px; font-weight: 500; margin-top: 14px; }
+      .pen-toggles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+      .pen-toggle {
+        appearance: none; display: inline-flex; align-items: center; gap: 6px;
+        border: 1px solid var(--line-strong); background: var(--panel-2);
+        border-radius: 999px; padding: 4px 10px 4px 5px; cursor: pointer;
+        font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+        line-height: 1.2; min-height: 2rem; color: var(--ink);
+      }
+      .pen-toggle:hover { border-color: var(--faint); }
+      .pen-toggle i {
+        width: 13px; height: 13px; border-radius: 50%; display: block; flex: none;
+        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2);
+      }
+      .pen-toggle.off { opacity: 0.45; border-style: dashed; }
+      .pen-toggle.off i { filter: grayscale(0.45); }
+      .pen-toggle.off .pen-toggle-text { text-decoration: line-through; }
+      .pen-toggle-hint { font-size: 12px; color: var(--warn); margin-top: 6px; }
+      .pen-toggle-hint:empty { display: none; }
+
+      .seed-row { display: flex; gap: 8px; align-items: stretch; }
+      .seed-row input[type="number"] {
+        width: 110px; padding: 6px 9px;
+        background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+        font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px;
+      }
+      .btn {
+        appearance: none; border: 1px solid var(--line-strong);
+        background: var(--panel-2); color: var(--ink);
+        border-radius: 8px; padding: 7px 14px; cursor: pointer;
+        font-weight: 500; font-size: 13.5px; min-height: 2.5rem;
+      }
+      .btn:hover { border-color: var(--faint); }
+      .btn.primary {
+        background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+        font-weight: 600;
+      }
+      .btn.primary:hover { filter: brightness(1.08); }
+      .btn:disabled { opacity: 0.55; cursor: wait; }
+      .btn.small { min-height: 2.25rem; padding: 5px 11px; font-size: 13px; }
+
+      .desc {
+        font-size: 13px; color: var(--muted); line-height: 1.55;
+        border-top: 1px solid var(--line); padding-top: 14px;
+      }
+      .desc strong { color: var(--ink); font-weight: 600; }
+      .desc p { margin: 0 0 8px; }
+      .desc p:last-child { margin-bottom: 0; }
+
+      /* ---------- stage ---------- */
+      .stage {
+        padding: 20px 22px 30px;
+        display: flex; flex-direction: column; gap: 16px;
+        background-image: radial-gradient(var(--stage-dot) 1px, transparent 1.1px);
+        background-size: 22px 22px;
+        min-width: 0;
+      }
+      .stats {
+        display: flex; flex-wrap: wrap; gap: 10px 26px;
+        background: var(--panel); border: 1px solid var(--line);
+        border-radius: var(--radius); padding: 12px 18px;
+        align-items: baseline;
+      }
+      .stat { display: flex; flex-direction: column; }
+      .stat .v {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 21px; font-weight: 600; line-height: 1.15;
+      }
+      .stat .v small { font-size: 12.5px; font-weight: 500; color: var(--muted); }
+      .stat .k { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+      .stat.warn .v { color: var(--warn); }
+      .stats .spacer { flex: 1; }
+      .pen-breakdown { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+      .pen-tag {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px;
+        border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px 3px 5px;
+        color: var(--muted); background: var(--panel-2);
+      }
+      .pen-tag i { width: 11px; height: 11px; border-radius: 50%; display: block; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2); }
+
+      .paper-wrap { display: flex; justify-content: center; padding: 6px 0 2px; }
+      .paper {
+        background: var(--paper);
+        box-shadow: var(--shadow);
+        border-radius: 3px;
+        width: min(100%, 520px);
+        aspect-ratio: 118 / 140;
+        position: relative;
+      }
+      .paper svg { display: block; width: 100%; height: auto; }
+      .paper-msg {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        text-align: center; padding: 20px;
+        font-size: 13.5px; color: #8a929c; pointer-events: none;
+      }
+      .paper-msg[hidden] { display: none; }
+      .paper .bedlabel {
+        position: absolute; right: 8px; bottom: 6px;
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+        font-size: 10.5px; color: #9aa0a6; pointer-events: none;
+      }
+      .actions { display: flex; flex-wrap: wrap; gap: 9px; align-items: center; justify-content: center; }
+      .actions .hint { font-size: 12.5px; color: var(--muted); width: 100%; text-align: center; }
+      .status-line {
+        text-align: center; font-size: 13px; color: var(--muted); min-height: 1.2em;
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+      .status-line.error { color: var(--warn); }
+
+      @media (max-width: 860px) {
+        .app { grid-template-columns: 1fr; }
+        .panel { border-right: none; border-top: 1px solid var(--line); order: 2; }
+        .stage { order: 1; padding: 14px 12px 20px; }
+        .pattern-grid { grid-template-columns: 1fr 1fr 1fr; }
+        .pattern-btn { font-size: 12.5px; padding: 7px 8px; }
+        .stat .v { font-size: 18px; }
+      }
+      @media (max-width: 480px) {
+        .pattern-grid { grid-template-columns: 1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <aside class="panel">
+        <section>
+          <h2>Pattern</h2>
+          <div class="pattern-grid" id="patternGrid"></div>
+        </section>
+
+        <section>
+          <h2 id="paramsTitle">Parameters</h2>
+          <div id="paramsBox"></div>
+        </section>
+
+        <section>
+          <h2>Pens</h2>
+          <div class="pen-slots" id="penSlots"></div>
+        </section>
+
+        <section>
+          <h2>Colour mode</h2>
+          <div id="colourBox"></div>
+        </section>
+
+        <section>
+          <h2>Seed</h2>
+          <div class="seed-row">
+            <input type="number" id="seedInput" value="7" min="0" max="999999" step="1" aria-label="Random seed" />
+            <button class="btn" id="seedDice" type="button">Randomise</button>
+          </div>
+        </section>
+
+        <section>
+          <h2>Output</h2>
+          <div id="outputBox"></div>
+        </section>
+
+        <div class="desc" id="descBox"></div>
+      </aside>
+
+      <main class="stage">
+        <div class="stats" id="statsBox"></div>
+        <div class="paper-wrap">
+          <div class="paper">
+            <svg id="preview" viewBox="0 0 118 140" preserveAspectRatio="xMidYMid meet" aria-label="Pattern preview at bed scale"></svg>
+            <div class="paper-msg" id="paperMsg">Generating preview…</div>
+            <div class="bedlabel">118 × 140 mm</div>
+          </div>
+        </div>
+        <div class="status-line" id="statusLine"></div>
+        <div class="actions">
+          <button class="btn primary" id="downloadBtn" type="button">Download SVG</button>
+          <button class="btn" id="copyBtn" type="button">Copy SVG</button>
+          <button class="btn" id="playBtn" type="button">▶ Preview plot</button>
+          <span class="hint" id="exportHint"></span>
+        </div>
+      </main>
+    </div>
+
+    <script>
+    "use strict";
+    /* ================================================================
+       Plotter Geometry Generator
+       Bed: 118 x 140 mm, stroke-only, 8 BIC pens (T0-T7).
+       All geometry is generated in millimetres, origin top-left.
+       ================================================================ */
+    var BED_W = 118, BED_H = 140;
+    var PEN_WIDTH = 0.32; // BIC Cristal 1.0mm ball -> 0.32mm line
+
+    // The user's actual 8 BIC pens, colours sampled from the caps (T0-T7).
+    var PENS = [
+      { t: "T0", name: "Black",     hex: "#2c2d30" },
+      { t: "T1", name: "Red",       hex: "#e42e2a" },
+      { t: "T2", name: "Pink",      hex: "#c65a93" },
+      { t: "T3", name: "Sky Blue",  hex: "#08b1dc" },
+      { t: "T4", name: "Lime",      hex: "#7bae44" },
+      { t: "T5", name: "Turquoise", hex: "#0497bd" },
+      { t: "T6", name: "Blue",      hex: "#2d4e9e" },
+      { t: "T7", name: "Violet",    hex: "#533c94" }
+    ];
+
+    /* ---------------- seeded RNG ---------------- */
+    function mulberry32(seed) {
+      var a = seed >>> 0;
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        var t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function shuffle(arr, rand) {
+      for (var i = arr.length - 1; i > 0; i--) {
+        var j = (rand() * (i + 1)) | 0, t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+      }
+      return arr;
+    }
+    function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = a % b; a = b; b = t; } return a || 1; }
+    function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    /* ---------------- Perlin noise + fBm ---------------- */
+    function makeNoise2D(seed) {
+      var rand = mulberry32(seed * 7919 + 13);
+      var p = new Uint8Array(256), i;
+      for (i = 0; i < 256; i++) p[i] = i;
+      for (i = 255; i > 0; i--) { var j = (rand() * (i + 1)) | 0, t = p[i]; p[i] = p[j]; p[j] = t; }
+      var perm = new Uint8Array(512);
+      for (i = 0; i < 512; i++) perm[i] = p[i & 255];
+      function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+      function grad(h, x, y) {
+        switch (h & 7) {
+          case 0: return x + y; case 1: return x - y; case 2: return -x + y; case 3: return -x - y;
+          case 4: return x; case 5: return -x; case 6: return y; default: return -y;
+        }
+      }
+      // returns roughly [-1, 1]
+      return function (x, y) {
+        var X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+        x -= Math.floor(x); y -= Math.floor(y);
+        var u = fade(x), v = fade(y);
+        var a = perm[X] + Y, b = perm[X + 1] + Y;
+        return lerp(
+          lerp(grad(perm[a], x, y), grad(perm[b], x - 1, y), u),
+          lerp(grad(perm[a + 1], x, y - 1), grad(perm[b + 1], x - 1, y - 1), u), v) * 1.42;
+      };
+    }
+    function makeFbm(seed, octaves) {
+      var noise = makeNoise2D(seed);
+      return function (x, y) {
+        var sum = 0, amp = 0.5, tot = 0, fx = x, fy = y;
+        for (var o = 0; o < octaves; o++) {
+          sum += amp * noise(fx, fy); tot += amp;
+          fx *= 2.03; fy *= 1.97; amp *= 0.5;
+        }
+        return sum / tot; // [-1, 1]
+      };
+    }
+
+    /* ---------------- stroke helpers ----------------
+       A stroke: { pen: 0..7, pts: [[x,y],...], closed: bool }       */
+    function strokeLen(pts) {
+      var L = 0;
+      for (var i = 1; i < pts.length; i++) {
+        var dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+        L += Math.sqrt(dx * dx + dy * dy);
+      }
+      return L;
+    }
+    function strokeBBox(strokes) {
+      var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      strokes.forEach(function (s) {
+        s.pts.forEach(function (p) {
+          if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0];
+          if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
+        });
+      });
+      return { x0: x0, y0: y0, x1: x1, y1: y1, w: x1 - x0, h: y1 - y0 };
+    }
+    // Uniformly scale + centre a set of strokes into the bed minus margin.
+    function fitStrokes(strokes, margin, cx, cy) {
+      if (!strokes.length) return strokes;
+      var bb = strokeBBox(strokes);
+      if (bb.w <= 0 && bb.h <= 0) return strokes;
+      var tw = BED_W - margin * 2, th = BED_H - margin * 2;
+      var sc = Math.min(tw / Math.max(bb.w, 1e-6), th / Math.max(bb.h, 1e-6));
+      var ox = (cx === undefined ? BED_W / 2 : cx), oy = (cy === undefined ? BED_H / 2 : cy);
+      var mx = (bb.x0 + bb.x1) / 2, my = (bb.y0 + bb.y1) / 2;
+      strokes.forEach(function (s) {
+        s.pts = s.pts.map(function (p) { return [ox + (p[0] - mx) * sc, oy + (p[1] - my) * sc]; });
+      });
+      return strokes;
+    }
+    // Fit preserving aspect but filling both axes when the art is bed-shaped.
+    function scaleStrokes(strokes, sx, sy, ox, oy) {
+      strokes.forEach(function (s) {
+        s.pts = s.pts.map(function (p) { return [p[0] * sx + ox, p[1] * sy + oy]; });
+      });
+      return strokes;
+    }
+
+    function clipSegmentRect(x0, y0, x1, y1) {
+      // Liang-Barsky against bed rect; returns [x0,y0,x1,y1] or null
+      var dx = x1 - x0, dy = y1 - y0, t0 = 0, t1 = 1;
+      var p = [-dx, dx, -dy, dy], q = [x0, BED_W - x0, y0, BED_H - y0];
+      for (var i = 0; i < 4; i++) {
+        if (p[i] === 0) { if (q[i] < 0) return null; }
+        else {
+          var t = q[i] / p[i];
+          if (p[i] < 0) { if (t > t1) return null; if (t > t0) t0 = t; }
+          else { if (t < t0) return null; if (t < t1) t1 = t; }
+        }
+      }
+      return [x0 + t0 * dx, y0 + t0 * dy, x0 + t1 * dx, y0 + t1 * dy];
+    }
+    function clipStrokeToBed(pts, closed) {
+      // Split a polyline at the bed boundary. Returns array of point-arrays.
+      var out = [], cur = null;
+      function push(p) { if (!cur) { cur = [p]; out.push(cur); } else cur.push(p); }
+      var n = pts.length, segs = closed ? n : n - 1;
+      for (var i = 0; i < segs; i++) {
+        var a = pts[i], b = pts[(i + 1) % n];
+        var c = clipSegmentRect(a[0], a[1], b[0], b[1]);
+        if (!c) { cur = null; continue; }
+        var p0 = [c[0], c[1]], p1 = [c[2], c[3]];
+        if (cur && cur.length) {
+          var last = cur[cur.length - 1];
+          if (Math.abs(last[0] - p0[0]) > 1e-6 || Math.abs(last[1] - p0[1]) > 1e-6) cur = null;
+        }
+        if (!cur) push(p0);
+        push(p1);
+      }
+      return out.filter(function (s) { return s.length > 1; });
+    }
+    function clipAll(strokes) {
+      var out = [];
+      strokes.forEach(function (s) {
+        clipStrokeToBed(s.pts, s.closed).forEach(function (pts) {
+          out.push({ pen: s.pen, pts: pts, closed: false });
+        });
+      });
+      return out;
+    }
+
+    /* Douglas-Peucker simplification (iterative) */
+    function simplifyPts(pts, tol) {
+      if (pts.length < 3 || tol <= 0) return pts;
+      var keep = new Uint8Array(pts.length);
+      keep[0] = keep[pts.length - 1] = 1;
+      var stack = [[0, pts.length - 1]];
+      while (stack.length) {
+        var seg = stack.pop(), a = seg[0], b = seg[1];
+        var ax = pts[a][0], ay = pts[a][1], bx = pts[b][0], by = pts[b][1];
+        var dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+        var maxD = 0, idx = -1;
+        for (var i = a + 1; i < b; i++) {
+          var px = pts[i][0] - ax, py = pts[i][1] - ay;
+          var d = len2 === 0 ? Math.sqrt(px * px + py * py)
+            : Math.abs(px * dy - py * dx) / Math.sqrt(len2);
+          if (d > maxD) { maxD = d; idx = i; }
+        }
+        if (maxD > tol && idx > 0) { keep[idx] = 1; stack.push([a, idx], [idx, b]); }
+      }
+      var out = [];
+      for (var k = 0; k < pts.length; k++) if (keep[k]) out.push(pts[k]);
+      return out;
+    }
+
+    /* Chaikin corner cutting — turns a jittery polyline into a cruiseable curve */
+    function chaikin(pts, closed, iters) {
+      var p = pts;
+      for (var it = 0; it < iters; it++) {
+        var out = [];
+        var n = p.length, segs = closed ? n : n - 1;
+        if (!closed) out.push(p[0]);
+        for (var i = 0; i < segs; i++) {
+          var a = p[i], b = p[(i + 1) % n];
+          out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25]);
+          out.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75]);
+        }
+        if (!closed) out.push(p[n - 1]);
+        p = out;
+      }
+      return p;
+    }
+
+    /* Round the corners of a polyline with quadratic arcs (for space-filling curves) */
+    function roundCorners(pts, radius, closed) {
+      if (pts.length < 3 || radius <= 0) return pts;
+      var out = [], n = pts.length;
+      var count = closed ? n : n - 2, start = closed ? 0 : 1;
+      if (!closed) out.push(pts[0]);
+      for (var k = 0; k < count; k++) {
+        var i = (start + k) % n;
+        var prev = pts[(i - 1 + n) % n], cur = pts[i], next = pts[(i + 1) % n];
+        var d1 = Math.hypot(cur[0] - prev[0], cur[1] - prev[1]);
+        var d2 = Math.hypot(next[0] - cur[0], next[1] - cur[1]);
+        var r = Math.min(radius, d1 / 2, d2 / 2);
+        if (r < 0.01) { out.push(cur); continue; }
+        var p1 = [cur[0] + (prev[0] - cur[0]) * (r / d1), cur[1] + (prev[1] - cur[1]) * (r / d1)];
+        var p2 = [cur[0] + (next[0] - cur[0]) * (r / d2), cur[1] + (next[1] - cur[1]) * (r / d2)];
+        out.push(p1);
+        for (var s = 1; s <= 4; s++) {
+          var t = s / 5, mt = 1 - t;
+          out.push([
+            mt * mt * p1[0] + 2 * mt * t * cur[0] + t * t * p2[0],
+            mt * mt * p1[1] + 2 * mt * t * cur[1] + t * t * p2[1]
+          ]);
+        }
+        out.push(p2);
+      }
+      if (!closed) out.push(pts[n - 1]);
+      return out;
+    }
+
+    /* linemerge: join open strokes whose endpoints meet within tol (per pen) */
+    function linemerge(strokes, tol) {
+      var tol2 = tol * tol;
+      function key(x, y) { return Math.round(x / tol) + "," + Math.round(y / tol); }
+      var byPen = {};
+      strokes.forEach(function (s, i) { (byPen[s.pen] = byPen[s.pen] || []).push(i); });
+      var used = new Uint8Array(strokes.length);
+      var result = [];
+      Object.keys(byPen).forEach(function (penKey) {
+        var idxs = byPen[penKey];
+        var pool = idxs.map(function (i) { return strokes[i]; });
+        // index endpoints in a hash so lookup is near O(1)
+        var endMap = {};
+        function reg(si, s) {
+          [0, 1].forEach(function (e) {
+            var p = e === 0 ? s.pts[0] : s.pts[s.pts.length - 1];
+            var k = key(p[0], p[1]);
+            (endMap[k] = endMap[k] || []).push({ si: si, end: e });
+          });
+        }
+        pool.forEach(function (s, si) { if (!s.closed) reg(si, s); });
+        var alive = pool.map(function () { return true; });
+        function findJoin(cur, atEnd) {
+          var p = atEnd ? cur.pts[cur.pts.length - 1] : cur.pts[0];
+          for (var gx = -1; gx <= 1; gx++) for (var gy = -1; gy <= 1; gy++) {
+            var list = endMap[(Math.round(p[0] / tol) + gx) + "," + (Math.round(p[1] / tol) + gy)] || [];
+            for (var li = 0; li < list.length; li++) {
+              var cand = list[li];
+              if (!alive[cand.si]) continue;
+              var cs = pool[cand.si];
+              if (cs === cur || cs.closed) continue;
+              var cp = cand.end === 0 ? cs.pts[0] : cs.pts[cs.pts.length - 1];
+              var dx = cp[0] - p[0], dy = cp[1] - p[1];
+              if (dx * dx + dy * dy <= tol2) return cand;
+            }
+          }
+          return null;
+        }
+        pool.forEach(function (s, si) {
+          if (!alive[si]) return;
+          if (s.closed) { alive[si] = false; result.push(s); return; }
+          alive[si] = false;
+          var cur = { pen: s.pen, pts: s.pts.slice(), closed: false };
+          var grew = true;
+          while (grew) {
+            grew = false;
+            var jEnd = findJoin(cur, true);
+            if (jEnd) {
+              var cs = pool[jEnd.si]; alive[jEnd.si] = false;
+              var add = jEnd.end === 0 ? cs.pts : cs.pts.slice().reverse();
+              cur.pts = cur.pts.concat(add.slice(1));
+              grew = true; continue;
+            }
+            var jStart = findJoin(cur, false);
+            if (jStart) {
+              var cs2 = pool[jStart.si]; alive[jStart.si] = false;
+              var add2 = jStart.end === 1 ? cs2.pts : cs2.pts.slice().reverse();
+              cur.pts = add2.slice(0, add2.length - 1).concat(cur.pts);
+              grew = true;
+            }
+          }
+          result.push(cur);
+        });
+      });
+      return result;
+    }
+
+    /* Greedy nearest-neighbour sort (vpype linesort equivalent), per pen groups kept in pen order */
+    function sortStrokes(strokes) {
+      var byPen = {};
+      strokes.forEach(function (s) { (byPen[s.pen] = byPen[s.pen] || []).push(s); });
+      var out = [];
+      Object.keys(byPen).map(Number).sort(function (a, b) { return a - b; }).forEach(function (pen) {
+        var pool = byPen[pen].slice();
+        var cx = 0, cy = 0;
+        while (pool.length) {
+          var best = -1, bestD = 1e18, flip = false;
+          for (var i = 0; i < pool.length; i++) {
+            var s = pool[i];
+            var a = s.pts[0], b = s.pts[s.pts.length - 1];
+            var d0 = (a[0] - cx) * (a[0] - cx) + (a[1] - cy) * (a[1] - cy);
+            var d1 = (b[0] - cx) * (b[0] - cx) + (b[1] - cy) * (b[1] - cy);
+            if (d0 < bestD) { bestD = d0; best = i; flip = false; }
+            if (d1 < bestD) { bestD = d1; best = i; flip = true; }
+          }
+          var chosen = pool.splice(best, 1)[0];
+          if (flip && !chosen.closed) chosen = { pen: chosen.pen, pts: chosen.pts.slice().reverse(), closed: false };
+          out.push(chosen);
+          var last = chosen.pts[chosen.pts.length - 1];
+          cx = last[0]; cy = last[1];
+        }
+      });
+      return out;
+    }
+
+    /* Marching squares with edge-crossing cache -> exact stitching into polylines.
+       field: Float32Array ny*nx (row-major), cell in mm. Returns array of pt arrays. */
+    function marchingSquares(field, nx, ny, cell, level, x0, y0) {
+      var hCache = {}, vCache = {};
+      function hPoint(i, j) { // crossing on horizontal edge between (i,j)-(i+1,j), at row j
+        var k = i + "_" + j;
+        if (hCache[k]) return hCache[k];
+        var a = field[j * nx + i], b = field[j * nx + i + 1];
+        var t = (level - a) / (b - a);
+        var p = [x0 + (i + t) * cell, y0 + j * cell];
+        hCache[k] = p; return p;
+      }
+      function vPoint(i, j) { // crossing on vertical edge between (i,j)-(i,j+1), at col i
+        var k = i + "_" + j;
+        if (vCache[k]) return vCache[k];
+        var a = field[j * nx + i], b = field[(j + 1) * nx + i];
+        var t = (level - a) / (b - a);
+        var p = [x0 + i * cell, y0 + (j + t) * cell];
+        vCache[k] = p; return p;
+      }
+      var segs = []; // [pA, pB]
+      for (var j = 0; j < ny - 1; j++) {
+        for (var i = 0; i < nx - 1; i++) {
+          var tl = field[j * nx + i], tr = field[j * nx + i + 1];
+          var bl = field[(j + 1) * nx + i], br = field[(j + 1) * nx + i + 1];
+          var idx = 0;
+          if (tl > level) idx |= 8; if (tr > level) idx |= 4;
+          if (br > level) idx |= 2; if (bl > level) idx |= 1;
+          if (idx === 0 || idx === 15) continue;
+          var top = function () { return hPoint(i, j); };
+          var right = function () { return vPoint(i + 1, j); };
+          var bottom = function () { return hPoint(i, j + 1); };
+          var left = function () { return vPoint(i, j); };
+          function seg(fa, fb) { segs.push([fa(), fb()]); }
+          switch (idx) {
+            case 1: case 14: seg(left, bottom); break;
+            case 2: case 13: seg(bottom, right); break;
+            case 3: case 12: seg(left, right); break;
+            case 4: case 11: seg(top, right); break;
+            case 6: case 9: seg(top, bottom); break;
+            case 7: case 8: seg(left, top); break;
+            case 5: seg(left, top); seg(bottom, right); break;
+            case 10: seg(left, bottom); seg(top, right); break;
+          }
+        }
+      }
+      // stitch segments by exact shared endpoints (cache guarantees identity)
+      var byStart = new Map();
+      segs.forEach(function (s, si) {
+        [s[0], s[1]].forEach(function (p) {
+          var k = p[0].toFixed(3) + "," + p[1].toFixed(3);
+          if (!byStart.has(k)) byStart.set(k, []);
+          byStart.get(k).push(si);
+        });
+      });
+      var usedS = new Uint8Array(segs.length);
+      var lines = [];
+      segs.forEach(function (s, si) {
+        if (usedS[si]) return;
+        usedS[si] = 1;
+        var line = [s[0], s[1]];
+        var extended = true;
+        while (extended) {
+          extended = false;
+          [0, 1].forEach(function (end) {
+            var tip = end === 0 ? line[0] : line[line.length - 1];
+            var k = tip[0].toFixed(3) + "," + tip[1].toFixed(3);
+            var cands = byStart.get(k) || [];
+            for (var ci = 0; ci < cands.length; ci++) {
+              var cj = cands[ci];
+              if (usedS[cj]) continue;
+              var cs = segs[cj];
+              var other = (Math.abs(cs[0][0] - tip[0]) < 1e-6 && Math.abs(cs[0][1] - tip[1]) < 1e-6) ? cs[1] : cs[0];
+              usedS[cj] = 1;
+              if (end === 0) line.unshift(other); else line.push(other);
+              extended = true;
+              break;
+            }
+          });
+        }
+        if (line.length > 1) {
+          var closed = false;
+          var f = line[0], l = line[line.length - 1];
+          if (Math.abs(f[0] - l[0]) < 1e-6 && Math.abs(f[1] - l[1]) < 1e-6) { closed = true; line.pop(); }
+          lines.push({ pts: line, closed: closed });
+        }
+      });
+      return lines;
+    }
+
+    /* ================================================================
+       GENERATORS
+       Each returns an array of strokes in bed mm coordinates.
+       ctx = { seed, margin, rand }
+       ================================================================ */
+
+    /* ---------- flow field: evenly-spaced streamlines (Jobard & Lefer style) ---------- */
+    function flowFieldStrokes(P, pen, ctx, region) {
+      var x0 = region.x0, y0 = region.y0, x1 = region.x1, y1 = region.y1;
+      var noise = makeNoise2D(ctx.seed + 101);
+      var scale = P.scale / 100; // noise units per mm (slider is "features per 100mm"-ish)
+      var angleFn;
+      if (P.field === "curl") {
+        var eps = 1.2;
+        var psi = function (x, y) { return noise(x * scale, y * scale); };
+        angleFn = function (x, y) {
+          var dx = psi(x, y + eps) - psi(x, y - eps);
+          var dy = -(psi(x + eps, y) - psi(x - eps, y));
+          return Math.atan2(dy, dx);
+        };
+      } else if (P.field === "sine") {
+        var f = scale * 2.2;
+        angleFn = function (x, y) {
+          return (Math.sin(x * f) + Math.cos(y * f)) * Math.PI * P.turns * 0.5;
+        };
+      } else { // perlin angle field, Hobbs: angle = noise * 2PI * multiplier
+        angleFn = function (x, y) {
+          var n = noise(x * scale, y * scale) * 0.5 + 0.5;
+          return n * Math.PI * 2 * P.turns;
+        };
+      }
+      var dsep = P.sep;
+      var cell = dsep;
+      var occ = new Map();
+      function okey(x, y) { return Math.floor(x / cell) + "," + Math.floor(y / cell); }
+      function tooClose(x, y, selfPts, selfFrom) {
+        var cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+        for (var gx = cx - 1; gx <= cx + 1; gx++) for (var gy = cy - 1; gy <= cy + 1; gy++) {
+          var list = occ.get(gx + "," + gy);
+          if (!list) continue;
+          for (var i = 0; i < list.length; i++) {
+            var dx = list[i][0] - x, dy = list[i][1] - y;
+            if (dx * dx + dy * dy < dsep * dsep * 0.81) return true;
+          }
+        }
+        if (selfPts) {
+          for (var j = 0; j < selfFrom; j++) {
+            var dx2 = selfPts[j][0] - x, dy2 = selfPts[j][1] - y;
+            if (dx2 * dx2 + dy2 * dy2 < dsep * dsep * 0.64) return true;
+          }
+        }
+        return false;
+      }
+      function mark(pts) {
+        pts.forEach(function (p) {
+          var k = okey(p[0], p[1]);
+          if (!occ.has(k)) occ.set(k, []);
+          occ.get(k).push(p);
+        });
+      }
+      function trace(sx, sy) {
+        function dir(sgn) {
+          var pts = [[sx, sy]];
+          var x = sx, y = sy;
+          for (var s = 0; s < P.steps; s++) {
+            var a = angleFn(x, y) + (sgn < 0 ? Math.PI : 0);
+            var nx = x + Math.cos(a) * P.step, ny = y + Math.sin(a) * P.step;
+            if (nx < x0 || nx > x1 || ny < y0 || ny > y1) break;
+            if (tooClose(nx, ny, pts, pts.length - 4)) break;
+            pts.push([nx, ny]); x = nx; y = ny;
+          }
+          return pts;
+        }
+        var fwd = dir(1), bwd = dir(-1);
+        var line = bwd.reverse().concat(fwd.slice(1));
+        return line;
+      }
+      var strokes = [];
+      var seeds = [];
+      for (var gx = x0 + dsep * 0.5; gx < x1; gx += dsep) {
+        for (var gy = y0 + dsep * 0.5; gy < y1; gy += dsep) seeds.push([gx, gy]);
+      }
+      shuffle(seeds, ctx.rand);
+      seeds.forEach(function (sd) {
+        if (tooClose(sd[0], sd[1], null, 0)) return;
+        var line = trace(sd[0], sd[1]);
+        if (line.length >= 6 && strokeLen(line) > dsep * 2.2) {
+          mark(line);
+          strokes.push({ pen: pen, pts: line, closed: false });
+        }
+      });
+      return strokes;
+    }
+
+    /* ---------- spirograph: hypo/epitrochoid ---------- */
+    function spirographStrokes(P, pen) {
+      var R = Math.round(P.R), r = Math.round(P.r);
+      if (P.mode === "hypo" && r >= R) r = R - 1;
+      if (r < 1) r = 1;
+      var g = gcd(R, r);
+      var revs = r / g;
+      var d = P.d * r; // pen offset, slider is fraction of r
+      var pts = [];
+      var total = Math.PI * 2 * revs;
+      var N = clamp(Math.round(revs * 720), 360, 9000);
+      for (var i = 0; i <= N; i++) {
+        var t = total * i / N, x, y;
+        if (P.mode === "hypo") {
+          x = (R - r) * Math.cos(t) + d * Math.cos((R - r) * t / r);
+          y = (R - r) * Math.sin(t) - d * Math.sin((R - r) * t / r);
+        } else {
+          x = (R + r) * Math.cos(t) - d * Math.cos((R + r) * t / r);
+          y = (R + r) * Math.sin(t) - d * Math.sin((R + r) * t / r);
+        }
+        pts.push([x, y]);
+      }
+      var s = { pen: pen, pts: pts, closed: true };
+      return fitStrokes([s], P.margin);
+    }
+
+    /* ---------- harmonograph: damped sinusoids ---------- */
+    function harmonographStrokes(P, pen) {
+      var a = P.fa, b = P.fb + P.detune;
+      var ph = P.phase * Math.PI / 180;
+      var pts = [];
+      var T = P.duration, N = 6500;
+      for (var i = 0; i <= N; i++) {
+        var t = T * i / N;
+        var env = Math.exp(-P.damping * t);
+        pts.push([Math.sin(a * t + ph) * env, Math.sin(b * t) * env]);
+      }
+      var s = { pen: pen, pts: pts, closed: false };
+      return fitStrokes([s], P.margin);
+    }
+
+    /* ---------- spiral: archimedean / logarithmic / golden ---------- */
+    function spiralStrokes(P, pen) {
+      var pts = [];
+      var turns = P.turns, total = Math.PI * 2 * turns;
+      if (P.type === "golden") {
+        // Fibonacci quarter-circle arcs: squares 1,1,2,3,5,8,... arc in each
+        var fibs = [1, 1];
+        while (fibs.length < Math.ceil(turns * 4) + 2) fibs.push(fibs[fibs.length - 1] + fibs[fibs.length - 2]);
+        var cx = 0, cy = 0, dir = 0; // start arc in first square
+        // Walk squares: place arc centres per Fibonacci tiling spiral
+        var px = 0, py = 0;
+        // Simpler exact approach: sample the logarithmic spiral with growth phi per quarter turn
+        pts = [];
+        var steps = Math.round(turns * 4) * 24;
+        for (var i = 0; i <= steps; i++) {
+          var th = (Math.PI / 2) * 4 * turns * i / steps;
+          var rr = Math.pow(1.6180339887, th / (Math.PI / 2));
+          pts.push([rr * Math.cos(th), rr * Math.sin(th)]);
+        }
+      } else if (P.type === "log") {
+        var steps2 = Math.round(turns * 220);
+        for (var j = 0; j <= steps2; j++) {
+          var th2 = total * j / steps2;
+          var r2 = Math.pow(P.growth, th2 / (Math.PI * 2));
+          pts.push([r2 * Math.cos(th2), r2 * Math.sin(th2)]);
+        }
+      } else { // archimedean r = b*theta
+        var steps3 = Math.round(turns * 220);
+        for (var k = 0; k <= steps3; k++) {
+          var th3 = total * k / steps3;
+          pts.push([th3 * Math.cos(th3), th3 * Math.sin(th3)]);
+        }
+      }
+      var strokes = [{ pen: pen, pts: pts, closed: false }];
+      if (P.double) {
+        // second arm rotated 180 degrees, joined through the centre -> still one path each;
+        // emit as second stroke (a true single path would retrace the centre)
+        var pts2 = pts.map(function (p) { return [-p[0], -p[1]]; });
+        strokes.push({ pen: pen, pts: pts2, closed: false });
+      }
+      return fitStrokes(strokes, P.margin);
+    }
+
+    /* ---------- L-systems ---------- */
+    var LSYSTEMS = {
+      koch:     { label: "Koch snowflake", axiom: "F++F++F", rules: { F: "F-F++F-F" }, angle: 60, iter: 4, maxIter: 5 },
+      dragon:   { label: "Heighway dragon", axiom: "FX", rules: { X: "X+YF+", Y: "-FX-Y" }, angle: 90, iter: 11, maxIter: 13 },
+      plant:    { label: "Fractal plant", axiom: "X", rules: { X: "F+[[X]-X]-F[-FX]+X", F: "FF" }, angle: 25, iter: 5, maxIter: 6 },
+      sierp:    { label: "Sierpiński triangle", axiom: "F-G-G", rules: { F: "F-G+F+G-F", G: "GG" }, angle: 120, iter: 5, maxIter: 7 },
+      levy:     { label: "Lévy C curve", axiom: "F", rules: { F: "+F--F+" }, angle: 45, iter: 10, maxIter: 13 },
+      hilbert:  { label: "Hilbert curve", axiom: "A", rules: { A: "+BF-AFA-FB+", B: "-AF+BFB+FA-" }, angle: 90, iter: 5, maxIter: 6 }
+    };
+    function expandLSystem(preset, iters) {
+      var s = preset.axiom;
+      for (var i = 0; i < iters; i++) {
+        var out = "";
+        for (var j = 0; j < s.length; j++) {
+          var ch = s[j];
+          out += preset.rules[ch] !== undefined ? preset.rules[ch] : ch;
+        }
+        s = out;
+        if (s.length > 600000) break;
+      }
+      return s;
+    }
+    function turtleStrokes(str, angleDeg, jitter, rand, pen) {
+      var strokes = [], cur = [[0, 0]];
+      var x = 0, y = 0, heading = -90; // up
+      var stack = [];
+      var ang = angleDeg * Math.PI / 180;
+      function jit() { return jitter > 0 ? (rand() - 0.5) * 2 * jitter * Math.PI / 180 : 0; }
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i];
+        if (ch === "F" || ch === "G" || ch === "A" || ch === "B") {
+          x += Math.cos(heading * Math.PI / 180); y += Math.sin(heading * Math.PI / 180);
+          cur.push([x, y]);
+        } else if (ch === "f") {
+          if (cur.length > 1) strokes.push({ pen: pen, pts: cur, closed: false });
+          x += Math.cos(heading * Math.PI / 180); y += Math.sin(heading * Math.PI / 180);
+          cur = [[x, y]];
+        } else if (ch === "+") heading += angleDeg + (jitter > 0 ? (rand() - 0.5) * 2 * jitter : 0);
+        else if (ch === "-") heading -= angleDeg + (jitter > 0 ? (rand() - 0.5) * 2 * jitter : 0);
+        else if (ch === "[") stack.push([x, y, heading]);
+        else if (ch === "]") {
+          if (cur.length > 1) strokes.push({ pen: pen, pts: cur, closed: false });
+          var st = stack.pop();
+          if (st) { x = st[0]; y = st[1]; heading = st[2]; }
+          cur = [[x, y]];
+        }
+      }
+      if (cur.length > 1) strokes.push({ pen: pen, pts: cur, closed: false });
+      return strokes;
+    }
+    function lsystemStrokes(P, pen, ctx) {
+      var preset = LSYSTEMS[P.preset];
+      var iters = Math.min(Math.round(P.iters), preset.maxIter);
+      var str = expandLSystem(preset, iters);
+      var strokes = turtleStrokes(str, preset.angle, P.jitter, ctx.rand, pen);
+      return fitStrokes(strokes, ctx.margin);
+    }
+
+    /* ---------- space-filling curves (with optional rounded turns) ---------- */
+    var SPACEFILL = {
+      hilbert: { label: "Hilbert", axiom: "A", rules: { A: "+BF-AFA-FB+", B: "-AF+BFB+FA-" }, angle: 90, defOrder: 5, maxOrder: 6 },
+      gosper:  { label: "Gosper flowsnake", axiom: "A", rules: { A: "A-B--B+A++AA+B-", B: "+A-BB--B-A++A+B" }, angle: 60, defOrder: 4, maxOrder: 5 },
+      peano:   { label: "Peano", axiom: "X", rules: { X: "XFYFX+F+YFXFY-F-XFYFX", Y: "YFXFY-F-XFYFX+F+YFXFY" }, angle: 90, defOrder: 3, maxOrder: 4 },
+      moore:   { label: "Moore", axiom: "LFL+F+LFL", rules: { L: "-RF+LFL+FR-", R: "+LF-RFR-FL+" }, angle: 90, defOrder: 4, maxOrder: 5 }
+    };
+    function spacefillStrokes(P, pen, ctx) {
+      var preset = SPACEFILL[P.curve];
+      var order = Math.min(Math.round(P.order), preset.maxOrder);
+      var str = expandLSystem(preset, order);
+      var strokes = turtleStrokes(str, preset.angle, 0, ctx.rand, pen);
+      strokes = fitStrokes(strokes, ctx.margin);
+      if (P.rounded > 0 && strokes.length === 1) {
+        // cell size ~ shortest segment
+        var pts = strokes[0].pts;
+        var minSeg = 1e9;
+        for (var i = 1; i < pts.length; i += 7) {
+          var d = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+          if (d > 0.01 && d < minSeg) minSeg = d;
+        }
+        strokes[0].pts = roundCorners(pts, minSeg * 0.5 * P.rounded, false);
+      }
+      return strokes;
+    }
+
+    /* ---------- Truchet tiles (Smith arcs, joined into continuous paths) ---------- */
+    function truchetStrokes(P, pen, ctx) {
+      var s = P.cell;
+      var cols = Math.max(2, Math.floor(BED_W / s)), rows = Math.max(2, Math.floor(BED_H / s));
+      var ox = (BED_W - cols * s) / 2, oy = (BED_H - rows * s) / 2;
+      var noise = makeNoise2D(ctx.seed + 55);
+      var arcs = []; // {aKey, bKey, pts}
+      function nodeKey(x, y) { return Math.round(x * 20) + "," + Math.round(y * 20); }
+      function arcPts(cx, cy, r, a0, a1) {
+        var pts = [], n = 9;
+        for (var i = 0; i <= n; i++) {
+          var a = a0 + (a1 - a0) * i / n;
+          pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
+        }
+        return pts;
+      }
+      for (var j = 0; j < rows; j++) {
+        for (var i = 0; i < cols; i++) {
+          var x0 = ox + i * s, y0 = oy + j * s, x1 = x0 + s, y1 = y0 + s;
+          var cxm = x0 + s / 2, cym = y0 + s / 2;
+          var flip;
+          if (P.rule === "noise") {
+            flip = noise((i + 0.5) * P.noiseScale * 0.14, (j + 0.5) * P.noiseScale * 0.14) > 0;
+          } else {
+            flip = ctx.rand() < 0.5;
+          }
+          var r = s / 2;
+          if (P.tiles === "diagonals") {
+            // original Truchet: a single diagonal per tile, two orientations
+            var d1 = flip ? [[x0, y0], [x1, y1]] : [[x1, y0], [x0, y1]];
+            arcs.push({ aKey: nodeKey(d1[0][0], d1[0][1]), bKey: nodeKey(d1[1][0], d1[1][1]), pts: d1 });
+          } else {
+            // Smith tile: quarter arcs around two opposite corners
+            var corners = flip
+              ? [{ cx: x0, cy: y0, a0: 0, a1: Math.PI / 2 }, { cx: x1, cy: y1, a0: Math.PI, a1: Math.PI * 1.5 }]
+              : [{ cx: x1, cy: y0, a0: Math.PI / 2, a1: Math.PI }, { cx: x0, cy: y1, a0: Math.PI * 1.5, a1: Math.PI * 2 }];
+            corners.forEach(function (c) {
+              var pts = arcPts(c.cx, c.cy, r, c.a0, c.a1);
+              arcs.push({ aKey: nodeKey(pts[0][0], pts[0][1]), bKey: nodeKey(pts[pts.length - 1][0], pts[pts.length - 1][1]), pts: pts });
+            });
+          }
+        }
+      }
+      // Walk the arc graph: every node has degree <= 2, so paths/cycles fall out directly.
+      var adj = new Map();
+      arcs.forEach(function (a, ai) {
+        [a.aKey, a.bKey].forEach(function (k) {
+          if (!adj.has(k)) adj.set(k, []);
+          adj.get(k).push(ai);
+        });
+      });
+      var used = new Uint8Array(arcs.length);
+      var strokes = [];
+      arcs.forEach(function (a0, ai0) {
+        if (used[ai0]) return;
+        used[ai0] = 1;
+        var line = a0.pts.slice();
+        var startKey = a0.aKey, endKey = a0.bKey;
+        var grew = true;
+        while (grew) {
+          grew = false;
+          [[endKey, true], [startKey, false]].forEach(function (end) {
+            var k = end[0], atEnd = end[1];
+            var cands = adj.get(k) || [];
+            for (var ci = 0; ci < cands.length; ci++) {
+              var cj = cands[ci];
+              if (used[cj]) continue;
+              var ca = arcs[cj];
+              used[cj] = 1;
+              if (atEnd) {
+                // orient the arc so it STARTS at the junction node k
+                var addE, newKeyE;
+                if (ca.aKey === k) { addE = ca.pts; newKeyE = ca.bKey; }
+                else { addE = ca.pts.slice().reverse(); newKeyE = ca.aKey; }
+                line = line.concat(addE.slice(1)); endKey = newKeyE;
+              } else {
+                // orient the arc so it ENDS at the junction node k
+                var addS, newKeyS;
+                if (ca.bKey === k) { addS = ca.pts; newKeyS = ca.aKey; }
+                else { addS = ca.pts.slice().reverse(); newKeyS = ca.bKey; }
+                line = addS.slice(0, addS.length - 1).concat(line); startKey = newKeyS;
+              }
+              grew = true;
+              break;
+            }
+          });
+        }
+        var closed = startKey === endKey && line.length > 4;
+        strokes.push({ pen: pen, pts: line, closed: closed });
+      });
+      return strokes;
+    }
+
+    /* ---------- Hankin polygons-in-contact star patterns ---------- */
+    function hankinStrokes(P, pen) {
+      var a = P.edge; // polygon edge length mm
+      var polys = [];
+      function regPoly(cx, cy, n, circum, rot) {
+        var pts = [];
+        for (var i = 0; i < n; i++) {
+          var t = rot + i * Math.PI * 2 / n;
+          pts.push([cx + circum * Math.cos(t), cy + circum * Math.sin(t)]);
+        }
+        return pts;
+      }
+      if (P.tiling === "squares") {
+        for (var y = -a; y < BED_H + a; y += a) for (var x = -a; x < BED_W + a; x += a) {
+          polys.push([[x, y], [x + a, y], [x + a, y + a], [x, y + a]]);
+        }
+      } else if (P.tiling === "hexagons") {
+        var R = a, dx = Math.sqrt(3) * a, dy = 1.5 * a, row = 0;
+        for (var cy = -a; cy < BED_H + a * 2; cy += dy, row++) {
+          for (var cx = -a + (row % 2 ? dx / 2 : 0); cx < BED_W + a * 2; cx += dx) {
+            polys.push(regPoly(cx, cy, 6, R, Math.PI / 6));
+          }
+        }
+      } else { // 4.8.8 octagons + squares
+        var L = a * (1 + Math.SQRT2);         // octagon centre spacing
+        var Ro = a / (2 * Math.sin(Math.PI / 8)); // octagon circumradius
+        var c = a / Math.SQRT2;               // gap-square circumradius
+        for (var oy = -L; oy < BED_H + L; oy += L) {
+          for (var ox = -L; ox < BED_W + L; ox += L) {
+            polys.push(regPoly(ox, oy, 8, Ro, Math.PI / 8));
+            polys.push(regPoly(ox + L / 2, oy + L / 2, 4, c, 0));
+          }
+        }
+      }
+      var theta = P.angle * Math.PI / 180;
+      var cosT = Math.cos(theta), sinT = Math.sin(theta);
+      var strokes = [];
+      polys.forEach(function (poly) {
+        var n = poly.length;
+        var cx = 0, cy = 0;
+        poly.forEach(function (p) { cx += p[0]; cy += p[1]; });
+        cx /= n; cy /= n;
+        var pArea = 0;
+        for (var pai = 0; pai < n; pai++) {
+          var PA = poly[pai], PB = poly[(pai + 1) % n];
+          pArea += PA[0] * PB[1] - PB[0] * PA[1];
+        }
+        pArea = Math.abs(pArea) / 2;
+        var mids = [], edges = [], normals = [];
+        for (var i = 0; i < n; i++) {
+          var A = poly[i], B = poly[(i + 1) % n];
+          var mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+          var ex = B[0] - A[0], ey = B[1] - A[1];
+          var el = Math.hypot(ex, ey); ex /= el; ey /= el;
+          var nx = cx - mx, ny = cy - my;
+          var nl = Math.hypot(nx, ny); nx /= nl; ny /= nl;
+          mids.push([mx, my]); edges.push([ex, ey]); normals.push([nx, ny]);
+        }
+        // star point near vertex i+1: intersection of ray from mid_i (toward B)
+        // with ray from mid_{i+1} (toward A)
+        var star = [];
+        for (var k = 0; k < n; k++) {
+          var k2 = (k + 1) % n;
+          var m1 = mids[k], e1 = edges[k], n1 = normals[k];
+          var d1 = [e1[0] * cosT + n1[0] * sinT, e1[1] * cosT + n1[1] * sinT];
+          var m2 = mids[k2], e2 = edges[k2], n2 = normals[k2];
+          var d2 = [-e2[0] * cosT + n2[0] * sinT, -e2[1] * cosT + n2[1] * sinT];
+          var rx = m2[0] - m1[0], ry = m2[1] - m1[1];
+          var den = d1[0] * d2[1] - d1[1] * d2[0];
+          if (Math.abs(den) < 1e-9) { star.push(null); continue; }
+          var t = (rx * d2[1] - ry * d2[0]) / den;
+          if (t <= 0) { star.push(null); continue; }
+          star.push([m1[0] + d1[0] * t, m1[1] + d1[1] * t]);
+        }
+        for (var m = 0; m < n; m++) {
+          var prev = star[(m - 1 + n) % n], next = star[m];
+          if (prev) strokes.push({ pen: pen, pts: [mids[m], prev], closed: false, size: pArea });
+          if (next) strokes.push({ pen: pen, pts: [mids[m], next], closed: false, size: pArea });
+        }
+      });
+      return strokes;
+    }
+
+    /* ---------- maze (spanning-tree generators) + optional solution ---------- */
+    function mazeStrokes(P, pen, penSolution, ctx) {
+      var cell = P.cell;
+      var cols = clamp(Math.floor((BED_W - P.margin * 2) / cell), 6, 60);
+      var rows = clamp(Math.floor((BED_H - P.margin * 2) / cell), 6, 60);
+      cell = Math.min((BED_W - P.margin * 2) / cols, (BED_H - P.margin * 2) / rows);
+      var ox = (BED_W - cols * cell) / 2, oy = (BED_H - rows * cell) / 2;
+      var N = cols * rows;
+      var vW = [], hW = [], i, j; // vW[x][y]: wall between (x-1,y)-(x,y); hW[x][y]: between (x,y-1)-(x,y)
+      for (i = 0; i <= cols; i++) { vW.push([]); for (j = 0; j < rows; j++) vW[i].push(true); }
+      for (i = 0; i <= rows; i++) { hW.push([]); for (j = 0; j < cols; j++) hW[i].push(true); }
+      // note hW indexed [y][x] for convenience below
+      var hWall = []; for (i = 0; i <= rows; i++) { hWall.push([]); for (j = 0; j < cols; j++) hWall[i].push(true); }
+      var vWall = []; for (i = 0; i <= cols; i++) { vWall.push([]); for (j = 0; j < rows; j++) vWall[i].push(true); }
+      function idx(x, y) { return y * cols + x; }
+      function neighbours(x, y) {
+        var out = [];
+        if (x > 0) out.push([x - 1, y, "L"]); if (x < cols - 1) out.push([x + 1, y, "R"]);
+        if (y > 0) out.push([x, y - 1, "U"]); if (y < rows - 1) out.push([x, y + 1, "D"]);
+        return out;
+      }
+      function carve(x, y, nx, ny) {
+        if (nx === x + 1) vWall[nx][y] = false;
+        else if (nx === x - 1) vWall[x][y] = false;
+        else if (ny === y + 1) hWall[ny][x] = false;
+        else if (ny === y - 1) hWall[y][x] = false;
+      }
+      var visited = new Uint8Array(N);
+      if (P.algo === "kruskal") {
+        var parent = new Int32Array(N);
+        for (i = 0; i < N; i++) parent[i] = i;
+        function find(a) { while (parent[a] !== a) { parent[a] = parent[parent[a]]; a = parent[a]; } return a; }
+        var walls = [];
+        for (var wy = 0; wy < rows; wy++) for (var wx = 0; wx < cols; wx++) {
+          if (wx < cols - 1) walls.push([wx, wy, wx + 1, wy]);
+          if (wy < rows - 1) walls.push([wx, wy, wx, wy + 1]);
+        }
+        shuffle(walls, ctx.rand);
+        walls.forEach(function (w) {
+          var ra = find(idx(w[0], w[1])), rb = find(idx(w[2], w[3]));
+          if (ra !== rb) { parent[ra] = rb; carve(w[0], w[1], w[2], w[3]); }
+        });
+        visited.fill(1);
+      } else if (P.algo === "prim") {
+        var sx = (ctx.rand() * cols) | 0, sy = (ctx.rand() * rows) | 0;
+        visited[idx(sx, sy)] = 1;
+        var frontier = [];
+        neighbours(sx, sy).forEach(function (nb) { frontier.push([sx, sy, nb[0], nb[1]]); });
+        while (frontier.length) {
+          var fi = (ctx.rand() * frontier.length) | 0;
+          var f = frontier.splice(fi, 1)[0];
+          if (visited[idx(f[2], f[3])]) continue;
+          visited[idx(f[2], f[3])] = 1;
+          carve(f[0], f[1], f[2], f[3]);
+          neighbours(f[2], f[3]).forEach(function (nb) {
+            if (!visited[idx(nb[0], nb[1])]) frontier.push([f[2], f[3], nb[0], nb[1]]);
+          });
+        }
+      } else { // recursive backtracker
+        var stack = [[(ctx.rand() * cols) | 0, (ctx.rand() * rows) | 0]];
+        visited[idx(stack[0][0], stack[0][1])] = 1;
+        while (stack.length) {
+          var top = stack[stack.length - 1];
+          var opts = neighbours(top[0], top[1]).filter(function (nb) { return !visited[idx(nb[0], nb[1])]; });
+          if (!opts.length) { stack.pop(); continue; }
+          var pick = opts[(ctx.rand() * opts.length) | 0];
+          carve(top[0], top[1], pick[0], pick[1]);
+          visited[idx(pick[0], pick[1])] = 1;
+          stack.push([pick[0], pick[1]]);
+        }
+      }
+      // braid: open loops at dead ends
+      if (P.braid > 0) {
+        for (var by = 0; by < rows; by++) for (var bx = 0; bx < cols; bx++) {
+          var open = 0;
+          if (bx > 0 && !vWall[bx][by]) open++;
+          if (bx < cols - 1 && !vWall[bx + 1][by]) open++;
+          if (by > 0 && !hWall[by][bx]) open++;
+          if (by < rows - 1 && !hWall[by + 1][bx]) open++;
+          if (open === 1 && ctx.rand() < P.braid / 100) {
+            var closedOpts = neighbours(bx, by).filter(function (nb) {
+              if (nb[2] === "L") return vWall[bx][by];
+              if (nb[2] === "R") return vWall[bx + 1][by];
+              if (nb[2] === "U") return hWall[by][bx];
+              return hWall[by + 1][bx];
+            });
+            if (closedOpts.length) {
+              var cp = closedOpts[(ctx.rand() * closedOpts.length) | 0];
+              carve(bx, by, cp[0], cp[1]);
+            }
+          }
+        }
+      }
+      // entrance / exit
+      hWall[0][0] = false;
+      hWall[rows][cols - 1] = false;
+      // build wall strokes, merging collinear runs
+      var strokes = [];
+      for (var hy = 0; hy <= rows; hy++) {
+        var runStart = -1;
+        for (var hx = 0; hx <= cols; hx++) {
+          var on = hx < cols && hWall[hy][hx];
+          if (on && runStart < 0) runStart = hx;
+          if (!on && runStart >= 0) {
+            strokes.push({ pen: pen, pts: [[ox + runStart * cell, oy + hy * cell], [ox + hx * cell, oy + hy * cell]], closed: false, mazeWall: true });
+            runStart = -1;
+          }
+        }
+      }
+      for (var vx = 0; vx <= cols; vx++) {
+        var runStart2 = -1;
+        for (var vy = 0; vy <= rows; vy++) {
+          var on2 = vy < rows && vWall[vx][vy];
+          if (on2 && runStart2 < 0) runStart2 = vy;
+          if (!on2 && runStart2 >= 0) {
+            strokes.push({ pen: pen, pts: [[ox + vx * cell, oy + runStart2 * cell], [ox + vx * cell, oy + vy * cell]], closed: false, mazeWall: true });
+            runStart2 = -1;
+          }
+        }
+      }
+      if (P.solution) {
+        // BFS over passage graph from (0,0) to (cols-1, rows-1)
+        var prev = new Int32Array(N).fill(-1);
+        var queue = [0]; prev[0] = 0;
+        while (queue.length) {
+          var curI = queue.shift();
+          if (curI === N - 1) break;
+          var cx2 = curI % cols, cy2 = (curI / cols) | 0;
+          neighbours(cx2, cy2).forEach(function (nb) {
+            var openW = nb[2] === "L" ? !vWall[cx2][cy2] : nb[2] === "R" ? !vWall[cx2 + 1][cy2] : nb[2] === "U" ? !hWall[cy2][cx2] : !hWall[cy2 + 1][cx2];
+            var ni = idx(nb[0], nb[1]);
+            if (openW && prev[ni] === -1) { prev[ni] = curI; queue.push(ni); }
+          });
+        }
+        if (prev[N - 1] !== -1) {
+          var path = [], ci = N - 1;
+          while (ci !== 0) { path.push(ci); ci = prev[ci]; }
+          path.push(0); path.reverse();
+          var pts = [[ox + cell / 2, oy - cell * 0.7]];
+          path.forEach(function (pi) {
+            pts.push([ox + (pi % cols) * cell + cell / 2, oy + ((pi / cols) | 0) * cell + cell / 2]);
+          });
+          pts.push([ox + (cols - 1) * cell + cell / 2, oy + rows * cell + cell * 0.7]);
+          strokes.push({ pen: penSolution, pts: pts, closed: false, mazeWall: false });
+        }
+      }
+      return strokes;
+    }
+
+    /* ---------- circle packing (growth method) ---------- */
+    function packingStrokes(P, pen, ctx) {
+      var minR = P.minR, maxR = P.maxR, pad = P.padding;
+      var x0 = P.margin, y0 = P.margin, x1 = BED_W - P.margin, y1 = BED_H - P.margin;
+      var circles = [];
+      var cellSize = maxR * 2;
+      var grid = new Map();
+      function gkey(x, y) { return Math.floor(x / cellSize) + "," + Math.floor(y / cellSize); }
+      function collides(cx, cy, r) {
+        if (cx - r < x0 || cx + r > x1 || cy - r < y0 || cy + r > y1) return true;
+        var gx = Math.floor(cx / cellSize), gy = Math.floor(cy / cellSize);
+        for (var ax = gx - 1; ax <= gx + 1; ax++) for (var ay = gy - 1; ay <= gy + 1; ay++) {
+          var list = grid.get(ax + "," + ay);
+          if (!list) continue;
+          for (var i = 0; i < list.length; i++) {
+            var c = list[i];
+            var dx = c.x - cx, dy = c.y - cy;
+            var need = c.r + r + pad;
+            if (dx * dx + dy * dy < need * need) return true;
+          }
+        }
+        return false;
+      }
+      var attempts = Math.round(P.attempts);
+      for (var a = 0; a < attempts; a++) {
+        var cx = x0 + ctx.rand() * (x1 - x0), cy = y0 + ctx.rand() * (y1 - y0);
+        if (collides(cx, cy, minR)) continue;
+        var r = minR;
+        while (r < maxR && !collides(cx, cy, r + 0.25)) r += 0.25;
+        var circ = { x: cx, y: cy, r: r };
+        circles.push(circ);
+        var k = gkey(cx, cy);
+        if (!grid.has(k)) grid.set(k, []);
+        grid.get(k).push(circ);
+      }
+      var strokes = [];
+      circles.forEach(function (c) {
+        var pts = [], n = clamp(Math.round(c.r * 9), 20, 128);
+        var startA = ctx.rand() * Math.PI * 2; // reloop: randomise seam
+        for (var i = 0; i <= n; i++) {
+          var t = startA + Math.PI * 2 * i / n;
+          pts.push([c.x + c.r * Math.cos(t), c.y + c.r * Math.sin(t)]);
+        }
+        strokes.push({ pen: pen, pts: pts, closed: true, size: c.r });
+        if (P.ring && c.r > 2.2) {
+          var pts2 = [], r2 = c.r * 0.62;
+          for (var j = 0; j <= n; j++) {
+            var t2 = startA + Math.PI * 2 * j / n;
+            pts2.push([c.x + r2 * Math.cos(t2), c.y + r2 * Math.sin(t2)]);
+          }
+          strokes.push({ pen: pen, pts: pts2, closed: true, size: c.r });
+        }
+      });
+      return strokes;
+    }
+
+    /* ---------- moiré: two superposed gratings ---------- */
+    function moireStrokes(P, penA, penB) {
+      var strokes = [];
+      var cx = BED_W / 2, cy = BED_H / 2;
+      var diag = Math.hypot(BED_W, BED_H) / 2 + 4;
+      var maskR = Math.min(BED_W, BED_H) / 2 - 3;
+      function clipLine(x0, y0, x1, y1) {
+        if (P.mask) {
+          // clip segment to mask disc
+          var dx = x1 - x0, dy = y1 - y0;
+          var fx = x0 - cx, fy = y0 - cy;
+          var A = dx * dx + dy * dy, B = 2 * (fx * dx + fy * dy), C = fx * fx + fy * fy - maskR * maskR;
+          var disc = B * B - 4 * A * C;
+          if (disc < 0) return null;
+          var sq = Math.sqrt(disc);
+          var t0 = Math.max(0, (-B - sq) / (2 * A)), t1 = Math.min(1, (-B + sq) / (2 * A));
+          if (t1 <= t0) return null;
+          return [x0 + dx * t0, y0 + dy * t0, x0 + dx * t1, y0 + dy * t1];
+        }
+        return clipSegmentRect(x0, y0, x1, y1);
+      }
+      function grating(pen, angleDeg, pitch, phase) {
+        var a = angleDeg * Math.PI / 180;
+        var nx = Math.cos(a), ny = Math.sin(a); // line normal
+        var dx = -ny, dy = nx;                  // line direction
+        for (var off = -diag + phase; off <= diag; off += pitch) {
+          var mx = cx + nx * off, my = cy + ny * off;
+          var c = clipLine(mx - dx * diag, my - dy * diag, mx + dx * diag, my + dy * diag);
+          if (c) strokes.push({ pen: pen, pts: [[c[0], c[1]], [c[2], c[3]]], closed: false });
+        }
+      }
+      function rings(pen, pitch, ccx, ccy) {
+        for (var r = pitch; r < diag; r += pitch) {
+          var pts = [], n = clamp(Math.round(r * 7), 24, 220);
+          for (var i = 0; i <= n; i++) {
+            var t = Math.PI * 2 * i / n;
+            pts.push([ccx + r * Math.cos(t), ccy + r * Math.sin(t)]);
+          }
+          strokes.push({ pen: pen, pts: pts, closed: true });
+        }
+      }
+      function spokes(pen, count, rotDeg) {
+        for (var i = 0; i < count; i++) {
+          var a = (rotDeg + i * 180 / count) * Math.PI / 180;
+          var c = clipLine(cx - Math.cos(a) * diag, cy - Math.sin(a) * diag, cx + Math.cos(a) * diag, cy + Math.sin(a) * diag);
+          if (c) strokes.push({ pen: pen, pts: [[c[0], c[1]], [c[2], c[3]]], closed: false });
+        }
+      }
+      if (P.grating === "rings") {
+        rings(penA, P.pitch, cx, cy);
+        rings(penB, P.pitch * P.ratio, cx + P.offset, cy);
+      } else if (P.grating === "spokes") {
+        spokes(penA, Math.round(P.spokes), 0);
+        spokes(penB, Math.round(P.spokes), P.angle / 2);
+      } else {
+        grating(penA, 0, P.pitch, 0);
+        grating(penB, P.angle, P.pitch * P.ratio, P.pitch * 0.5);
+      }
+      return P.mask && P.grating === "rings"
+        ? strokes.filter(function (s) {
+            return s.pts.some(function (p) { return Math.hypot(p[0] - cx, p[1] - cy) < maskR + P.pitch; });
+          })
+        : strokes;
+    }
+
+    /* ---------- terrain contours (marching squares over fBm) ---------- */
+    function contourStrokes(P, pen, penIndex, ctx) {
+      var cell = 1.0;
+      var nx = Math.round(BED_W / cell) + 1, ny = Math.round(BED_H / cell) + 1;
+      var fbm = makeFbm(ctx.seed + 31, Math.round(P.octaves));
+      var field = new Float32Array(nx * ny);
+      var mn = 1e9, mx = -1e9;
+      for (var j = 0; j < ny; j++) for (var i = 0; i < nx; i++) {
+        var v = fbm(i * cell * P.scale / 100, j * cell * P.scale / 100);
+        field[j * nx + i] = v;
+        if (v < mn) mn = v; if (v > mx) mx = v;
+      }
+      var strokes = [];
+      var levels = Math.round(P.levels);
+      for (var li = 0; li < levels; li++) {
+        var level = mn + (mx - mn) * (li + 1) / (levels + 1);
+        var p = (P.indexEvery > 0 && (li + 1) % Math.round(P.indexEvery) === 0) ? penIndex : pen;
+        marchingSquares(field, nx, ny, cell, level, 0, 0).forEach(function (ln) {
+          if (strokeLen(ln.pts) > 2) strokes.push({ pen: p, pts: ln.pts, closed: ln.closed });
+        });
+      }
+      return strokes;
+    }
+
+    /* ---------- reaction-diffusion (Gray-Scott) -> contour bands ---------- */
+    function rdStrokes(P, pen, pen2, ctx, done) {
+      var nx = 100, ny = 118;
+      var cell = BED_W / (nx - 1);
+      var u = new Float32Array(nx * ny), v = new Float32Array(nx * ny);
+      var i, x, y;
+      for (i = 0; i < nx * ny; i++) u[i] = 1;
+      // seed blobs of V
+      var blobs = 26;
+      for (var b = 0; b < blobs; b++) {
+        var bx = 8 + ctx.rand() * (nx - 16), by = 8 + ctx.rand() * (ny - 16);
+        var br = 2 + ctx.rand() * 3;
+        for (y = Math.max(0, by - br | 0); y < Math.min(ny, by + br); y++) {
+          for (x = Math.max(0, bx - br | 0); x < Math.min(nx, bx + br); x++) {
+            if ((x - bx) * (x - bx) + (y - by) * (y - by) < br * br) { v[y * nx + x] = 1; u[y * nx + x] = 0.5; }
+          }
+        }
+      }
+      var Du = 1.0, Dv = 0.5, F = P.feed, K = P.kill;
+      var u2 = new Float32Array(nx * ny), v2 = new Float32Array(nx * ny);
+      var steps = Math.round(P.steps);
+      function lap(arr, x, y) {
+        // mirror (Neumann) boundaries via clamped indices — no frozen edge band
+        var xm = x > 0 ? x - 1 : 0, xp = x < nx - 1 ? x + 1 : nx - 1;
+        var ym = y > 0 ? y - 1 : 0, yp = y < ny - 1 ? y + 1 : ny - 1;
+        var c = arr[y * nx + x];
+        var s = -c;
+        s += 0.2 * (arr[y * nx + xm] + arr[y * nx + xp] + arr[ym * nx + x] + arr[yp * nx + x]);
+        s += 0.05 * (arr[ym * nx + xm] + arr[ym * nx + xp] + arr[yp * nx + xm] + arr[yp * nx + xp]);
+        return s;
+      }
+      for (var st = 0; st < steps; st++) {
+        for (y = 0; y < ny; y++) {
+          for (x = 0; x < nx; x++) {
+            var id = y * nx + x;
+            var uvv = u[id] * v[id] * v[id];
+            u2[id] = u[id] + Du * lap(u, x, y) - uvv + F * (1 - u[id]);
+            v2[id] = v[id] + Dv * lap(v, x, y) + uvv - (F + K) * v[id];
+          }
+        }
+        var tu = u; u = u2; u2 = tu; var tv = v; v = v2; v2 = tv;
+      }
+      var strokes = [];
+      var lv = { 1: [0.22], 2: [0.14, 0.3], 3: [0.1, 0.2, 0.32], 4: [0.08, 0.16, 0.24, 0.34] }[Math.round(P.levels)] || [0.14, 0.3];
+      lv.forEach(function (level, li2) {
+        var p = (li2 % 2 === 1) ? pen2 : pen;
+        marchingSquares(v, nx, ny, cell, level, 0, (BED_H - (ny - 1) * cell) / 2).forEach(function (ln) {
+          if (strokeLen(ln.pts) > 2.5) strokes.push({ pen: p, pts: ln.pts, closed: ln.closed });
+        });
+      });
+      done(strokes);
+    }
+
+    /* ---------- 3D surfaces with z-buffer hidden-line removal ---------- */
+    function surfaceStrokes(P, pen) {
+      var nu = Math.round(P.uDiv), nv = Math.round(P.vDiv);
+      function surf(u, v) { // u,v in [0,1] -> [x,y,z] raw units
+        if (P.surface === "torus") {
+          var R = 30, r = 12.5;
+          var a = u * Math.PI * 2, b = v * Math.PI * 2;
+          return [(R + r * Math.cos(b)) * Math.cos(a), (R + r * Math.cos(b)) * Math.sin(a), r * Math.sin(b)];
+        } else if (P.surface === "shell") {
+          var th = u * Math.PI * 2 * P.coils;
+          var rho = Math.pow(P.growth, u * P.coils);
+          var tr = 0.40 * rho * 2.4;
+          var cx = rho * 2.4 * Math.cos(th), cy = rho * 2.4 * Math.sin(th);
+          // frame: tangent in plane, in-plane normal, z axis
+          var dth = 0.001;
+          var rho2 = Math.pow(P.growth, (u + dth) * P.coils);
+          var cx2 = rho2 * 2.4 * Math.cos(th + dth * Math.PI * 2 * P.coils), cy2 = rho2 * 2.4 * Math.sin(th + dth * Math.PI * 2 * P.coils);
+          var tx = cx2 - cx, ty = cy2 - cy, tl = Math.hypot(tx, ty) || 1; tx /= tl; ty /= tl;
+          var phi = v * Math.PI * 2;
+          return [
+            cx + tr * Math.cos(phi) * (-ty),
+            cy + tr * Math.cos(phi) * (tx),
+            tr * Math.sin(phi)
+          ];
+        } else if (P.surface === "sphere") {
+          var ph = v * Math.PI, th2 = u * Math.PI * 2, Rs = 30;
+          return [Rs * Math.sin(ph) * Math.cos(th2), Rs * Math.sin(ph) * Math.sin(th2), Rs * Math.cos(ph)];
+        } else if (P.surface === "saddle") {
+          var sx = (u - 0.5) * 68, sy = (v - 0.5) * 68;
+          return [sx, sy, (sx * sx - sy * sy) / 55];
+        } else { // wave terrain heightfield
+          var wx = (u - 0.5) * 72, wy = (v - 0.5) * 72;
+          var wz = 9 * Math.sin(wx / 11) * Math.cos(wy / 13) + 5 * Math.sin((wx + wy) / 7.5);
+          return [wx, wy, wz];
+        }
+      }
+      var rx = P.rotX * Math.PI / 180, ry = P.rotY * Math.PI / 180;
+      var cosX = Math.cos(rx), sinX = Math.sin(rx), cosY = Math.cos(ry), sinY = Math.sin(ry);
+      function rot(p) {
+        var x = p[0], y = p[1], z = p[2];
+        var x1 = x * cosY + z * sinY, z1 = -x * sinY + z * cosY; // rotate about Y
+        var y2 = y * cosX - z1 * sinX, z2 = y * sinX + z1 * cosX; // rotate about X
+        return [x1, y2, z2];
+      }
+      // sample grid
+      var grid = [];
+      for (var j = 0; j <= nv; j++) {
+        grid.push([]);
+        for (var i = 0; i <= nu; i++) grid[j].push(rot(surf(i / nu, j / nv)));
+      }
+      // fit projected xy to bed
+      var mnx = 1e9, mny = 1e9, mxx = -1e9, mxy = -1e9, mnz = 1e9, mxz = -1e9;
+      grid.forEach(function (row) { row.forEach(function (p) {
+        if (p[0] < mnx) mnx = p[0]; if (p[0] > mxx) mxx = p[0];
+        if (p[1] < mny) mny = p[1]; if (p[1] > mxy) mxy = p[1];
+        if (p[2] < mnz) mnz = p[2]; if (p[2] > mxz) mxz = p[2];
+      }); });
+      var sc = Math.min((BED_W - P.margin * 2) / (mxx - mnx), (BED_H - P.margin * 2) / (mxy - mny));
+      function proj(p) {
+        return [BED_W / 2 + (p[0] - (mnx + mxx) / 2) * sc, BED_H / 2 - (p[1] - (mny + mxy) / 2) * sc, p[2]];
+      }
+      var strokes = [];
+      if (!P.hlr) {
+        for (var a = 0; a <= nu; a++) {
+          var lineA = [], zA = 0;
+          for (var b = 0; b <= nv; b++) { var pa = proj(grid[b][a]); lineA.push([pa[0], pa[1]]); zA += grid[b][a][2]; }
+          strokes.push({ pen: pen, pts: lineA, closed: false, depth: (zA / lineA.length - mnz) / ((mxz - mnz) || 1), group: 0, uvT: a / nu });
+        }
+        for (var c = 0; c <= nv; c++) {
+          var lineB = [], zB = 0;
+          for (var d = 0; d <= nu; d++) { var pb = proj(grid[c][d]); lineB.push([pb[0], pb[1]]); zB += grid[c][d][2]; }
+          strokes.push({ pen: pen, pts: lineB, closed: false, depth: (zB / lineB.length - mnz) / ((mxz - mnz) || 1), group: 1, uvT: c / nv });
+        }
+        return strokes;
+      }
+      // depth buffer at 4 px/mm
+      var RES = 4, DW = Math.round(BED_W * RES), DH = Math.round(BED_H * RES);
+      var depth = new Float32Array(DW * DH).fill(-1e9);
+      function rasterTri(p0, p1, p2) {
+        var ax = p0[0], ay = p0[1], bx = p1[0], by = p1[1], cx2 = p2[0], cy2 = p2[1];
+        var minx = Math.max(0, Math.floor(Math.min(ax, bx, cx2) * RES)), maxx = Math.min(DW - 1, Math.ceil(Math.max(ax, bx, cx2) * RES));
+        var miny = Math.max(0, Math.floor(Math.min(ay, by, cy2) * RES)), maxy = Math.min(DH - 1, Math.ceil(Math.max(ay, by, cy2) * RES));
+        var den = (by - cy2) * (ax - cx2) + (cx2 - bx) * (ay - cy2);
+        if (Math.abs(den) < 1e-12) return;
+        for (var yy = miny; yy <= maxy; yy++) {
+          for (var xx = minx; xx <= maxx; xx++) {
+            var px = (xx + 0.5) / RES, py = (yy + 0.5) / RES;
+            var w0 = ((by - cy2) * (px - cx2) + (cx2 - bx) * (py - cy2)) / den;
+            var w1 = ((cy2 - ay) * (px - cx2) + (ax - cx2) * (py - cy2)) / den;
+            var w2 = 1 - w0 - w1;
+            if (w0 < -0.001 || w1 < -0.001 || w2 < -0.001) continue;
+            var z = w0 * p0[2] + w1 * p1[2] + w2 * p2[2];
+            var id = yy * DW + xx;
+            if (z > depth[id]) depth[id] = z;
+          }
+        }
+      }
+      for (var tj = 0; tj < nv; tj++) for (var ti = 0; ti < nu; ti++) {
+        var q0 = proj(grid[tj][ti]), q1 = proj(grid[tj][ti + 1]), q2 = proj(grid[tj + 1][ti + 1]), q3 = proj(grid[tj + 1][ti]);
+        rasterTri(q0, q1, q2); rasterTri(q0, q2, q3);
+      }
+      var tol = (mxz - mnz) * 0.02 + 0.4;
+      function visible(p) {
+        var xx = clamp(Math.round(p[0] * RES), 0, DW - 1), yy = clamp(Math.round(p[1] * RES), 0, DH - 1);
+        return p[2] >= depth[yy * DW + xx] - tol;
+      }
+      function emitVisible(pts3, group, uvT) {
+        var cur = null, curZ = 0;
+        function flushSeg() {
+          if (cur && cur.length > 2) {
+            strokes.push({ pen: pen, pts: cur, closed: false, depth: (curZ / cur.length - mnz) / ((mxz - mnz) || 1), group: group, uvT: uvT });
+          }
+          cur = null; curZ = 0;
+        }
+        pts3.forEach(function (p) {
+          if (visible(p)) {
+            if (!cur) { cur = []; curZ = 0; }
+            cur.push([p[0], p[1]]); curZ += p[2];
+          } else flushSeg();
+        });
+        flushSeg();
+      }
+      var SUB = 5;
+      for (var la = 0; la <= nu; la++) {
+        var pts3 = [];
+        for (var lb = 0; lb <= nv * SUB; lb++) {
+          var vv = lb / (nv * SUB), uu = la / nu;
+          // bilinear-ish: sample surface directly at fine v, same u line
+          pts3.push(proj(rot(surf(uu, vv))));
+        }
+        emitVisible(pts3, 0, la / nu);
+      }
+      for (var lc = 0; lc <= nv; lc++) {
+        var pts4 = [];
+        for (var ld = 0; ld <= nu * SUB; ld++) {
+          pts4.push(proj(rot(surf(ld / (nu * SUB), lc / nv))));
+        }
+        emitVisible(pts4, 1, lc / nv);
+      }
+      return strokes;
+    }
+
+    /* ---------- variable-density hatch shading (darkness-field line placement) ---------- */
+    function hatchStrokes(P, pen) {
+      var cx = BED_W / 2, cy = BED_H / 2;
+      var R = Math.min(BED_W, BED_H) / 2 - P.margin;
+      var light = [-0.55, -0.75]; // from upper left
+      var ll = Math.hypot(light[0], light[1]); light = [light[0] / ll, light[1] / ll];
+      function darkness(x, y) {
+        var dx = x - cx, dy = y - cy, d2 = dx * dx + dy * dy;
+        if (P.shape === "sphere") {
+          if (d2 > R * R) return -1;
+          var z = Math.sqrt(R * R - d2);
+          var ndl = -(dx / R) * light[0] - (dy / R) * light[1] + (z / R) * 0.55;
+          return clamp(0.12 + 0.95 * Math.max(0, ndl), 0, 1);
+        } else if (P.shape === "disc") {
+          if (d2 > R * R) return -1;
+          var r = Math.sqrt(d2) / R;
+          return Math.pow(1 - r, 0.75);
+        } else { // wave bands over the full sheet
+          var w = 0.5 + 0.5 * Math.sin(y * 0.16 + 2.6 * Math.sin(x * 0.045));
+          return Math.pow(w, 1.3);
+        }
+      }
+      var ang = P.angle * Math.PI / 180;
+      var tx = Math.cos(ang), ty = Math.sin(ang);   // line direction
+      var nx = -ty, ny = tx;                        // line normal
+      var diag = Math.hypot(BED_W, BED_H);
+      var strokes = [];
+      var acc = 0, ds = 0.12;
+      for (var s = -diag / 2; s <= diag / 2; s += ds) {
+        // sample mean darkness along the line through centre + s*normal
+        var mx = cx + nx * s, my = cy + ny * s;
+        var sum = 0, cnt = 0, inRun = 0;
+        var samples = [];
+        for (var tt = -diag / 2; tt <= diag / 2; tt += 0.8) {
+          var px = mx + tx * tt, py = my + ty * tt;
+          if (px < 2 || px > BED_W - 2 || py < 2 || py > BED_H - 2) { samples.push(null); continue; }
+          var d = darkness(px, py);
+          if (d < 0) { samples.push(null); continue; }
+          samples.push([px, py, d]); sum += Math.pow(d, P.gamma); cnt++;
+        }
+        if (!cnt) continue;
+        acc += (sum / cnt) * ds;
+        if (acc >= P.spacing) {
+          acc -= P.spacing;
+          // emit the inside runs of this line, each tagged with its mean tone
+          var run = null, runTone = 0;
+          function flushRun() {
+            if (run && run.length > 1) strokes.push({ pen: pen, pts: run, closed: false, tone: runTone / run.length });
+            run = null; runTone = 0;
+          }
+          samples.forEach(function (sp) {
+            if (sp) { if (!run) { run = []; runTone = 0; } run.push([sp[0], sp[1]]); runTone += sp[2]; }
+            else flushRun();
+          });
+          flushRun();
+        }
+      }
+      return strokes;
+    }
+
+    /* ---------- Voronoi (half-plane clipping) + Lloyd relaxation ---------- */
+    function voronoiStrokes(P, pen, penDelaunay, ctx) {
+      var x0 = P.margin, y0 = P.margin, x1 = BED_W - P.margin, y1 = BED_H - P.margin;
+      var seeds = [];
+      if (P.dist === "grid") {
+        var nSide = Math.ceil(Math.sqrt(P.count));
+        var cw = (x1 - x0) / nSide, chh = (y1 - y0) / nSide;
+        for (var gy = 0; gy < nSide; gy++) for (var gx = 0; gx < nSide; gx++) {
+          seeds.push([x0 + (gx + 0.5 + (ctx.rand() - 0.5) * P.jitter) * cw / 1, y0 + (gy + 0.5 + (ctx.rand() - 0.5) * P.jitter) * chh]);
+          if (seeds.length >= Math.round(P.count)) break;
+        }
+      } else {
+        for (var i = 0; i < Math.round(P.count); i++) seeds.push([x0 + ctx.rand() * (x1 - x0), y0 + ctx.rand() * (y1 - y0)]);
+      }
+      function cellPoly(si) {
+        var poly = [[x0, y0], [x1, y0], [x1, y1], [x0, y1]];
+        var p = seeds[si];
+        for (var sj = 0; sj < seeds.length; sj++) {
+          if (sj === si) continue;
+          var q = seeds[sj];
+          var mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+          var dx = q[0] - p[0], dy = q[1] - p[1];
+          var out = [];
+          for (var e = 0; e < poly.length; e++) {
+            var A = poly[e], B = poly[(e + 1) % poly.length];
+            var da = (A[0] - mx) * dx + (A[1] - my) * dy;
+            var db = (B[0] - mx) * dx + (B[1] - my) * dy;
+            if (da <= 1e-9) out.push(A);
+            if ((da < 0 && db > 0) || (da > 0 && db < 0)) {
+              var t = da / (da - db);
+              out.push([A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t]);
+            }
+          }
+          poly = out;
+          if (!poly.length) break;
+        }
+        return poly;
+      }
+      var iters = Math.round(P.lloyd);
+      for (var it = 0; it < iters; it++) {
+        seeds = seeds.map(function (p, si) {
+          var poly = cellPoly(si);
+          if (poly.length < 3) return p;
+          var ax = 0, ay = 0, a2 = 0;
+          for (var e = 0; e < poly.length; e++) {
+            var A = poly[e], B = poly[(e + 1) % poly.length];
+            var cr = A[0] * B[1] - B[0] * A[1];
+            a2 += cr; ax += (A[0] + B[0]) * cr; ay += (A[1] + B[1]) * cr;
+          }
+          if (Math.abs(a2) < 1e-9) return p;
+          return [ax / (3 * a2), ay / (3 * a2)];
+        });
+      }
+      var edgeOwner = new Map();
+      var polys = seeds.map(function (p, si) { return cellPoly(si); });
+      var cellAreas = polys.map(function (poly) {
+        var a2 = 0;
+        for (var ae = 0; ae < poly.length; ae++) {
+          var AA = poly[ae], BB = poly[(ae + 1) % poly.length];
+          a2 += AA[0] * BB[1] - BB[0] * AA[1];
+        }
+        return Math.abs(a2) / 2;
+      });
+      polys.forEach(function (poly, si) {
+        for (var e = 0; e < poly.length; e++) {
+          var A = poly[e], B = poly[(e + 1) % poly.length];
+          if (Math.hypot(B[0] - A[0], B[1] - A[1]) < 0.6) continue;
+          var kA = A[0].toFixed(2) + "," + A[1].toFixed(2), kB = B[0].toFixed(2) + "," + B[1].toFixed(2);
+          var k = kA < kB ? kA + "|" + kB : kB + "|" + kA;
+          if (!edgeOwner.has(k)) edgeOwner.set(k, { a: A, b: B, owners: [] });
+          edgeOwner.get(k).owners.push(si);
+        }
+      });
+      var strokes = [];
+      if (P.draw !== "delaunay") {
+        edgeOwner.forEach(function (e) {
+          var sz = 0;
+          e.owners.forEach(function (oi) { sz += cellAreas[oi] || 0; });
+          strokes.push({ pen: pen, pts: [e.a, e.b], closed: false, size: sz / Math.max(1, e.owners.length) });
+        });
+      }
+      if (P.draw !== "cells") {
+        var drawn = new Set();
+        edgeOwner.forEach(function (e) {
+          if (e.owners.length === 2) {
+            var k = e.owners[0] + "-" + e.owners[1];
+            if (drawn.has(k)) return;
+            drawn.add(k);
+            strokes.push({ pen: penDelaunay, pts: [seeds[e.owners[0]], seeds[e.owners[1]]], closed: false });
+          }
+        });
+      }
+      return strokes;
+    }
+
+    /* ---------- Speed Run: spiral + harmonograph + long streamlines ---------- */
+    function speedrunStrokes(P, pensArr, ctx) {
+      var strokes = [];
+      var m = ctx.margin;
+      if (P.spiralOn) {
+        var sp = spiralStrokes({ type: "log", turns: P.turns, growth: 1.9, double: false, margin: m }, pensArr[0]);
+        strokes = strokes.concat(sp);
+      }
+      if (P.harmOn) {
+        var hm = harmonographStrokes({ fa: 3, fb: 2, detune: 0.02, phase: 90, damping: P.damping, duration: 90, margin: m + 5 }, pensArr[1]);
+        strokes = strokes.concat(hm);
+      }
+      if (P.flowOn) {
+        var fl = flowFieldStrokes(
+          { field: "perlin", scale: 1.15, turns: 1.4, sep: P.flowSep, step: 1.1, steps: Math.round(P.flowSteps) },
+          pensArr[2], ctx,
+          { x0: m, y0: m, x1: BED_W - m, y1: BED_H - m }
+        );
+        strokes = strokes.concat(fl);
+      }
+      return strokes;
+    }
+
+    /* ================================================================
+       PATTERN REGISTRY
+       ================================================================ */
+    function R(label, min, max, step, def, unit) {
+      return { type: "range", label: label, min: min, max: max, step: step, def: def, unit: unit || "" };
+    }
+    function SEL(label, options, def) { return { type: "select", label: label, options: options, def: def }; }
+    function CHK(label, def) { return { type: "check", label: label, def: def }; }
+
+    var PATTERNS = [
+      {
+        id: "speedrun", name: "Speed Run", wide: true,
+        desc: "<p><strong>Three long-line families on one sheet, one pen each:</strong> a logarithmic spiral (a single path, zero lifts), a slowly-decaying 3:2 harmonograph (one open line), and long flow-field streamlines. Built to show what the machine does at cruise — plot time on a plotter is governed by pen lifts and cornering, not ink length: the same dots take ~4 min as one continuous line vs ~51 min as separate marks.</p><p>Sources: <a href=\"https://www.plotcaster.com/learn/one-line-drawing-from-a-photo/\" target=\"_blank\" rel=\"noopener\">Plotcaster, one-line drawings</a> · <a href=\"https://www.plotcaster.com/tools/spiral-generator/\" target=\"_blank\" rel=\"noopener\">Plotcaster spiral generator</a></p>",
+        pens: [
+          { key: "spiral", label: "Spiral pen", def: 0 },
+          { key: "harm", label: "Harmonograph pen", def: 6 },
+          { key: "flow", label: "Streamlines pen", def: 5 }
+        ],
+        params: {
+          spiralOn: CHK("Include spiral", true),
+          harmOn: CHK("Include harmonograph", true),
+          flowOn: CHK("Include streamlines", true),
+          turns: R("Spiral turns", 3, 14, 0.5, 8),
+          damping: R("Harmonograph damping", 0.002, 0.02, 0.001, 0.010),
+          flowSep: R("Streamline separation", 1.8, 6, 0.2, 3.6, "mm"),
+          flowSteps: R("Streamline length (steps)", 100, 600, 10, 300)
+        },
+        gen: function (P, pens, ctx) { return speedrunStrokes(P, pens, ctx); }
+      },
+      {
+        id: "flow", name: "Flow Field",
+        desc: "<p><strong>Evenly-spaced streamlines</strong> through a noise angle field — the Fidenza family. Lines are seeded on a grid and grown in both directions, stopping before they crowd an existing line (Jobard &amp; Lefer's method), which keeps ink even and lifts low. Angle = noise × 2π × multiplier, after Tyler Hobbs. Curl mode uses Bridson's curl noise — divergence-free, so lines swirl in eddies instead of piling into gutters.</p><p>Sources: <a href=\"https://www.tylerxhobbs.com/words/flow-fields?format=amp\" target=\"_blank\" rel=\"noopener\">Hobbs, Flow Fields</a> · <a href=\"https://www.plotcaster.com/learn/flow-field-art-from-photos/\" target=\"_blank\" rel=\"noopener\">Plotcaster flow guide</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 0 }],
+        params: {
+          field: SEL("Field type", [["perlin", "Perlin angle field"], ["curl", "Curl noise (divergence-free)"], ["sine", "Sine field (periodic)"]], "perlin"),
+          scale: R("Noise scale", 0.4, 6, 0.1, 2.2),
+          turns: R("Angle multiplier", 0.5, 3, 0.1, 1.6, "×2π"),
+          sep: R("Line separation", 0.8, 5, 0.1, 1.6, "mm"),
+          step: R("Step length", 0.4, 2, 0.1, 0.9, "mm"),
+          steps: R("Max steps per line", 40, 600, 10, 240)
+        },
+        gen: function (P, pens, ctx) {
+          return flowFieldStrokes(P, pens[0], ctx, { x0: ctx.margin, y0: ctx.margin, x1: BED_W - ctx.margin, y1: BED_H - ctx.margin });
+        }
+      },
+      {
+        id: "spiral", name: "Spiral",
+        desc: "<p><strong>One path from end to end, zero pen lifts</strong> — the purest speed demo there is. Archimedean: even coil gap. Logarithmic: radius multiplies by the growth factor each turn. Golden: growth of φ per quarter-turn, the Fibonacci spiral. 5 turns at full width is ~0.9 m of line; 12 turns is ~2 m.</p><p>Source: <a href=\"https://www.plotcaster.com/tools/spiral-generator/\" target=\"_blank\" rel=\"noopener\">Plotcaster spiral generator</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 0 }],
+        params: {
+          type: SEL("Spiral type", [["arch", "Archimedean (even gap)"], ["log", "Logarithmic"], ["golden", "Golden (φ per quarter-turn)"]], "log"),
+          turns: R("Turns", 1, 24, 0.5, 9),
+          growth: R("Log growth per turn", 1.2, 3, 0.05, 1.8, "×"),
+          double: CHK("Second arm (180°)", false)
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return spiralStrokes(P, pens[0]); }
+      },
+      {
+        id: "harmonograph", name: "Harmonograph",
+        desc: "<p><strong>Two damped pendulums drawing one continuous line.</strong> x = sin(a·t + φ)·e^(−d·t), y = sin(b·t)·e^(−d·t). The frequency ratio sets the symmetry (3:2, 5:4…), a small detune makes the figure slowly precess, and damping decides how much ink lands near the centre: d = 0.01 leaves 37% of the size at t = 100; d = 0.03 leaves 5%.</p><p>Source: <a href=\"https://en.wikipedia.org/wiki/Harmonograph\" target=\"_blank\" rel=\"noopener\">Harmonograph, Wikipedia</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 6 }],
+        params: {
+          fa: R("Frequency a", 1, 8, 1, 3),
+          fb: R("Frequency b", 1, 8, 1, 2),
+          detune: R("Detune ε", 0, 0.08, 0.002, 0.02),
+          phase: R("Phase", 0, 180, 1, 90, "°"),
+          damping: R("Damping d", 0, 0.03, 0.001, 0.008),
+          duration: R("Duration t", 40, 220, 5, 125)
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return harmonographStrokes(P, pens[0]); }
+      },
+      {
+        id: "spiro", name: "Spirograph",
+        desc: "<p><strong>Hypotrochoid / epitrochoid roulettes.</strong> A wheel of r teeth rolls inside (or outside) a ring of R teeth; the pen sits at distance d from the wheel centre. The shape depends only on the ratios: petals = R / gcd(R, r), and the curve closes after r / gcd(R, r) revolutions. d = r gives cusps — deltoid at 3:1, astroid at 4:1, cardioid at 1:1 outside. One closed line, no lifts.</p><p>Source: <a href=\"https://spirography.com/\" target=\"_blank\" rel=\"noopener\">Spirography</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 7 }],
+        params: {
+          mode: SEL("Rolling", [["hypo", "Inside the ring (hypotrochoid)"], ["epi", "Outside the ring (epitrochoid)"]], "hypo"),
+          R: R("Ring teeth R", 12, 180, 1, 105),
+          r: R("Wheel teeth r", 2, 179, 1, 63),
+          d: R("Pen offset d", 0.05, 1.6, 0.01, 0.72, "×r")
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return spirographStrokes(P, pens[0]); },
+        readout: function (P) {
+          var Rr = Math.round(P.R), rr = Math.round(P.r);
+          if (P.mode === "hypo" && rr >= Rr) rr = Rr - 1;
+          var g = gcd(Rr, rr);
+          return "Petals: " + (Rr / g) + " · closes after " + (rr / g) + " revolution" + (rr / g > 1 ? "s" : "");
+        }
+      },
+      {
+        id: "truchet", name: "Truchet Tiles",
+        desc: "<p><strong>Smith tiles:</strong> two quarter-circle arcs per square, in one of two rotations. Because arcs always meet at edge midpoints, neighbours connect into long continuous curves — the generator walks the arc graph and emits those joined paths directly, not one arc per stroke. Rotation can follow a noise field instead of coin flips, which makes the texture drift in waves.</p><p>After Sébastien Truchet (1704) and Cyril Stanley Smith (1987).</p>",
+        pens: [{ key: "pen", label: "Pen", def: 0 }],
+        params: {
+          tiles: SEL("Tile set", [["smith", "Smith arcs"], ["diagonals", "Diagonal (Truchet 1704)"]], "smith"),
+          cell: R("Cell size", 5, 24, 0.5, 11.8, "mm"),
+          rule: SEL("Rotation rule", [["random", "Random coin flip"], ["noise", "Noise field"]], "random"),
+          noiseScale: R("Noise scale (field rule)", 0.5, 8, 0.25, 3)
+        },
+        gen: function (P, pens, ctx) { return truchetStrokes(P, pens[0], ctx); }
+      },
+      {
+        id: "hankin", name: "Hankin Stars",
+        desc: "<p><strong>Islamic star patterns by Hankin's polygons-in-contact method</strong> (1925, formalised by Craig Kaplan). From the midpoint of every polygon edge, two lines are drawn at the contact angle; where they meet the lines from neighbouring edges, stars and rosettes close inside each tile and straps run continuously across the tiling. The contact angle is the one powerful slider: on the 4.8.8 tiling, 20° gives soft octagons, 67.5° the classic eight-point star, 80° needle points.</p><p>Source: <a href=\"https://cs.uwaterloo.ca/~csk/publications/Papers/kaplan_2005.pdf\" target=\"_blank\" rel=\"noopener\">Kaplan, Islamic Star Patterns from Polygons in Contact (PDF)</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 6 }],
+        params: {
+          tiling: SEL("Base tiling", [["488", "4.8.8 — squares + octagons"], ["hexagons", "6.6.6 — hexagons"], ["squares", "4.4.4.4 — squares"]], "488"),
+          edge: R("Polygon edge", 7, 30, 0.5, 13, "mm"),
+          angle: R("Contact angle", 25, 75, 0.5, 55, "°")
+        },
+        gen: function (P, pens, ctx) { return clipAll(hankinStrokes(P, pens[0])); }
+      },
+      {
+        id: "lsystem", name: "L-Systems",
+        desc: "<p><strong>Lindenmayer systems (1968):</strong> every symbol in the string is rewritten in parallel each generation, then a turtle walks the result — F draws, +/− turn, [ ] branch. Presets are the canonical ones from <em>The Algorithmic Beauty of Plants</em>. Angle jitter makes it stochastic: the herbarium/weed look. Iterations are capped per preset because string length grows exponentially.</p><p>Source: <a href=\"https://foldscape.zauberware.com/lsystem\" target=\"_blank\" rel=\"noopener\">Foldscape L-system reference</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 4 }],
+        params: {
+          preset: SEL("Preset", Object.keys(LSYSTEMS).map(function (k) { return [k, LSYSTEMS[k].label]; }), "plant"),
+          iters: R("Iterations", 1, 13, 1, 5),
+          jitter: R("Angle jitter", 0, 6, 0.25, 0, "°")
+        },
+        gen: function (P, pens, ctx) { return lsystemStrokes(P, pens[0], ctx); },
+        readout: function (P) {
+          var pr = LSYSTEMS[P.preset];
+          return pr.label + " · angle " + pr.angle + "° · iterations capped at " + pr.maxIter;
+        }
+      },
+      {
+        id: "spacefill", name: "Space-Filling Curves",
+        desc: "<p><strong>One unbroken line that folds until it visits every corner</strong> — zero pen lifts by construction. The catch is cornering: at high order there's a turn every ~1.5 mm and the machine never reaches cruise. Rounding the turns replaces each 90° corner with a quarter arc, which both looks better and plots faster.</p><p>Peano 1890, Hilbert 1891, Gosper's flowsnake 1976.</p>",
+        pens: [{ key: "pen", label: "Pen", def: 1 }],
+        params: {
+          curve: SEL("Curve", Object.keys(SPACEFILL).map(function (k) { return [k, SPACEFILL[k].label]; }), "hilbert"),
+          order: R("Order", 1, 6, 1, 5),
+          rounded: R("Rounded turns", 0, 1, 0.05, 0, "×½ cell")
+        },
+        gen: function (P, pens, ctx) { return spacefillStrokes(P, pens[0], ctx); },
+        readout: function (P) {
+          var pr = SPACEFILL[P.curve];
+          return pr.label + " · order capped at " + pr.maxOrder;
+        }
+      },
+      {
+        id: "maze", name: "Maze",
+        desc: "<p><strong>Every perfect maze is a spanning tree</strong> — exactly cells−1 passages. The backtracker grows long twisty corridors with few dead ends; Prim's is branchy with many short dead ends; Kruskal's spreads them evenly. Braiding opens loops at dead ends. The solution path is found by BFS and drawn in its own pen. Collinear wall runs are merged before export, so walls plot as long strokes, not cell-by-cell segments.</p><p>Source: <a href=\"https://www.puzzlemakeronline.com/maze-generation-algorithms/\" target=\"_blank\" rel=\"noopener\">Maze generation algorithms compared</a></p>",
+        pens: [
+          { key: "pen", label: "Wall pen", def: 0 },
+          { key: "sol", label: "Solution pen", def: 1 }
+        ],
+        params: {
+          algo: SEL("Algorithm", [["backtracker", "Recursive backtracker"], ["prim", "Randomised Prim's"], ["kruskal", "Randomised Kruskal's"]], "backtracker"),
+          cell: R("Cell size", 3.5, 12, 0.25, 6, "mm"),
+          braid: R("Braid (open dead ends)", 0, 100, 5, 0, "%"),
+          solution: CHK("Draw solution", true)
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return mazeStrokes(P, pens[0], pens[1], ctx); }
+      },
+      {
+        id: "packing", name: "Circle Packing",
+        desc: "<p><strong>Growth packing:</strong> drop a circle at a random point, grow it until it touches a neighbour, the sheet edge, or the max radius; repeat. Tangent circles never overlap, so the sheet fills with foam-like bubbles. Each circle's seam is randomised (vpype's <em>reloop</em> trick) so the start-point ink blot doesn't line up. More attempts = denser fill, with diminishing returns.</p><p>Source: <a href=\"https://generativeartistry.com/tutorials/circle-packing/\" target=\"_blank\" rel=\"noopener\">Generative Artistry, circle packing</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 5 }],
+        params: {
+          minR: R("Min radius", 0.8, 4, 0.1, 1.4, "mm"),
+          maxR: R("Max radius", 3, 30, 0.5, 14, "mm"),
+          padding: R("Gap between circles", 0, 2, 0.1, 0.3, "mm"),
+          attempts: R("Attempts", 500, 40000, 500, 9000),
+          ring: CHK("Inner ring at 62%", false)
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return packingStrokes(P, pens[0], ctx); }
+      },
+      {
+        id: "moire", name: "Moiré",
+        desc: "<p><strong>Interference between two regular gratings.</strong> Two line gratings of pitch p at a small relative angle α produce fringes of spacing p / (2 sin(α/2)) — at α = 2° that's a 28× magnification, huge soft bands from fine lines. The bands only exist in a narrow window of small angles; at 90° you just get mesh. Rings use a pitch mismatch instead. Each grating gets its own pen — colour separation is what makes the interference legible on paper.</p><p>Source: <a href=\"https://www.alexvolkihar.ovh/genart/moire\" target=\"_blank\" rel=\"noopener\">Alex Volkihar, Moiré</a></p>",
+        pens: [
+          { key: "a", label: "Grating 1 pen", def: 6 },
+          { key: "b", label: "Grating 2 pen", def: 1 }
+        ],
+        params: {
+          grating: SEL("Grating type", [["lines", "Parallel lines"], ["rings", "Concentric rings"], ["spokes", "Radial spokes"]], "lines"),
+          pitch: R("Pitch", 1, 5, 0.1, 2.2, "mm"),
+          angle: R("Angle between gratings", 0.3, 12, 0.1, 2.4, "°"),
+          ratio: R("Pitch ratio (grating 2)", 1.0, 1.12, 0.005, 1.03, "×"),
+          offset: R("Ring centre offset", 0, 14, 0.5, 4, "mm"),
+          spokes: R("Spoke count", 12, 90, 1, 40),
+          mask: CHK("Confine to disc", true)
+        },
+        gen: function (P, pens, ctx) { return moireStrokes(P, pens[0], pens[1]); }
+      },
+      {
+        id: "contours", name: "Terrain Contours",
+        desc: "<p><strong>Marching-squares contours of an fBm noise heightfield</strong> — topographic loops, stitched into long polylines by matching edge crossings exactly (never exported as thousands of one-cell segments). Index contours (every Nth level) can go to a second pen, the way mapmakers draw every fifth contour heavier.</p><p>Source: <a href=\"https://www.drawmycanvas.com/gallery/contour-drift/\" target=\"_blank\" rel=\"noopener\">Contour Drift — marching squares with asymptotic decider</a></p>",
+        pens: [
+          { key: "pen", label: "Contour pen", def: 0 },
+          { key: "idx", label: "Index pen", def: 6 }
+        ],
+        params: {
+          scale: R("Noise scale", 0.6, 6, 0.1, 2.0),
+          octaves: R("Octaves", 1, 6, 1, 4),
+          levels: R("Contour levels", 3, 22, 1, 11),
+          indexEvery: R("Index contour every", 0, 8, 1, 5, "levels")
+        },
+        gen: function (P, pens, ctx) { return contourStrokes(P, pens[0], pens[1], ctx); }
+      },
+      {
+        id: "surface3d", name: "3D Surface",
+        desc: "<p><strong>Parametric surfaces with true hidden-line removal:</strong> the surface is triangulated into a z-buffer, then each wireframe line is kept only where it is actually visible — the same approach as fogleman's <em>ln</em> engine. That's what makes a torus or a coiled shell read as a solid shaded object instead of a tangle. Turn HLR off for the full transparent wireframe.</p><p>Source: <a href=\"https://reindernijhoff.net/2019/01/3d-line-art-engine-port/\" target=\"_blank\" rel=\"noopener\">Reinder Nijhoff, 3D line art engine (ln port)</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 0 }],
+        params: {
+          surface: SEL("Surface", [["torus", "Torus"], ["shell", "Shell (log-spiral coil)"], ["sphere", "Sphere"], ["saddle", "Saddle"], ["wave", "Wave terrain"]], "shell"),
+          uDiv: R("U divisions", 6, 48, 1, 26),
+          vDiv: R("V divisions", 6, 48, 1, 26),
+          coils: R("Shell coils", 1.5, 5, 0.25, 3.25),
+          growth: R("Shell growth / turn", 1.6, 3, 0.05, 2.2, "×"),
+          rotX: R("Tilt (rot X)", -85, 85, 1, 58, "°"),
+          rotY: R("Spin (rot Y)", -180, 180, 1, 24, "°"),
+          hlr: CHK("Hidden-line removal", true)
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return surfaceStrokes(P, pens[0]); }
+      },
+      {
+        id: "hatch", name: "Shaded Hatch",
+        desc: "<p><strong>Tone from line spacing, never from fill.</strong> The generator walks across the shape accumulating a darkness field, and places a line each time the integral crosses one spacing unit — so lines pack tight in the shadows and spread out in the lights. For a 0.32 mm BIC line, ~0.4 mm spacing reads as solid dark and lines merge below ~0.55 mm. The tone curve (gamma) lifts the mid-tones, which helps because ink spreads on paper and plots come out darker than the preview.</p><p>Source: <a href=\"https://github.com/algonormative/hatch3d/blob/HEAD/docs/techniques/hatching.md\" target=\"_blank\" rel=\"noopener\">hatch3d, hatching techniques</a></p>",
+        pens: [{ key: "pen", label: "Pen", def: 0 }],
+        params: {
+          shape: SEL("Form", [["sphere", "Sphere"], ["disc", "Radial disc"], ["waves", "Wave bands"]], "sphere"),
+          spacing: R("Spacing at full dark", 0.4, 2.5, 0.05, 0.75, "mm"),
+          angle: R("Hatch angle", 0, 180, 1, -38, "°"),
+          gamma: R("Tone curve γ", 0.5, 2.2, 0.05, 1.0)
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return hatchStrokes(P, pens[0]); }
+      },
+      {
+        id: "rd", name: "Reaction–Diffusion",
+        desc: "<p><strong>Gray–Scott reaction–diffusion, converted to contour bands.</strong> Two chemicals diffuse and react (U + 2V → 3V); V must diffuse at half U's rate or no pattern forms. The simulation itself is a pixel field, so what plots is marching-squares contours of the V field — spots, dividing cells and coral as nested line loops. Presets use Karl Sims's canonical (f, k) values; other published values differ enough to change regime, so treat the free sliders as exploratory.</p><p>Source: <a href=\"https://karlsims.com/rd.html\" target=\"_blank\" rel=\"noopener\">Karl Sims, Reaction-Diffusion</a></p>",
+        pens: [
+          { key: "pen", label: "Band pen A", def: 5 },
+          { key: "pen2", label: "Band pen B", def: 6 }
+        ],
+        params: {
+          preset: SEL("Regime preset", [["custom", "Custom (use sliders)"], ["mitosis", "Mitosis — spots divide (Sims)"], ["coral", "Coral growth (Sims)"], ["spots", "Stable spots"], ["maze", "Labyrinth stripes"]], "mitosis"),
+          feed: R("Feed rate f", 0.005, 0.1, 0.0005, 0.0367),
+          kill: R("Kill rate k", 0.04, 0.075, 0.0005, 0.0649),
+          steps: R("Simulation steps", 300, 4000, 100, 1600),
+          levels: R("Contour bands", 1, 4, 1, 2)
+        },
+        async: true,
+        gen: function (P, pens, ctx, done) {
+          if (P.preset === "mitosis") { P.feed = 0.0367; P.kill = 0.0649; }
+          else if (P.preset === "coral") { P.feed = 0.0545; P.kill = 0.062; }
+          else if (P.preset === "spots") { P.feed = 0.030; P.kill = 0.062; }
+          else if (P.preset === "maze") { P.feed = 0.025; P.kill = 0.060; }
+          rdStrokes(P, pens[0], pens[1], ctx, done);
+        }
+      },
+      {
+        id: "voronoi", name: "Voronoi",
+        desc: "<p><strong>Voronoi cells and their Delaunay dual.</strong> Each cell is clipped from the sheet by the bisector half-planes of its neighbours; shared edges are drawn once (never twice — overdraw pools ink). Lloyd relaxation moves each seed to its cell centroid and recomputes: 0 iterations is wild, 2–3 is organic-regular, 5+ approaches honeycomb. Delaunay edges join seeds whose cells touch.</p><p>Source: <a href=\"https://www.blowhole.net/articles/voronoi.html\" target=\"_blank\" rel=\"noopener\">Blowhole, Voronoi diagrams</a></p>",
+        pens: [
+          { key: "pen", label: "Cell pen", def: 0 },
+          { key: "del", label: "Delaunay pen", def: 3 }
+        ],
+        params: {
+          count: R("Seed points", 12, 300, 2, 110),
+          dist: SEL("Distribution", [["random", "Uniform random"], ["grid", "Jittered grid"]], "random"),
+          jitter: R("Grid jitter", 0, 1, 0.05, 0.6),
+          lloyd: R("Lloyd relaxation", 0, 6, 1, 2, "iters"),
+          draw: SEL("Draw", [["cells", "Voronoi cells"], ["both", "Cells + Delaunay"], ["delaunay", "Delaunay only"]], "cells")
+        },
+        gen: function (P, pens, ctx) { P.margin = ctx.margin; return voronoiStrokes(P, pens[0], pens[1], ctx); }
+      }
+    ];
+
+    /* ================================================================
+       COLOUR MODES
+       Single = the pen slots, exactly as before. Every other mode
+       recolours the generated strokes from the full 8-pen BIC set,
+       before post-processing — so path counts, lifts, ink, time,
+       the preview and the export all describe the real multicolour
+       output, including the extra lifts where a line changes pen.
+       ================================================================ */
+    var COLOUR_MODES = [
+      ["single", "Single — pen slots above"],
+      ["direction", "By direction — stroke angle"],
+      ["position", "By position — gradient across the sheet"],
+      ["order", "By order — along the drawing"],
+      ["size", "By size — feature size"],
+      ["rainbow", "Rainbow — cycle all 8 pens"],
+      ["random", "Random — seeded, per stroke"]
+    ];
+    // Sensible multicolour default per generator; Single stays available everywhere.
+    var COLOUR_DEFAULTS = {
+      speedrun: "order", flow: "direction", spiral: "order", harmonograph: "order",
+      spiro: "order", truchet: "size", hankin: "position", lsystem: "order",
+      spacefill: "order", maze: "order", packing: "size", moire: "single",
+      contours: "order", surface3d: "direction", hatch: "position", rd: "order",
+      voronoi: "size"
+    };
+    var COLOUR_NOTES = {
+      speedrun: "Runs across all three families in draw order.",
+      flow: "Each streamline takes the pen for its mean direction.",
+      spiral: "By order splits the single line into coloured segments — each segment is its own path, so the pen changes are real.",
+      harmonograph: "By order splits the single line into coloured segments — each segment is its own path, so the pen changes are real.",
+      spiro: "By order splits the closed roulette into coloured segments around the curve.",
+      truchet: "By size colours each joined strap by its length.",
+      hankin: "By size colours straps by their tile — octagon straps vs square straps; By position shades across the sheet.",
+      lsystem: "By order follows the turtle's traversal from first segment to last.",
+      spacefill: "By order splits the one unbroken line into coloured segments along its length.",
+      maze: "Walls always keep the wall pen — the mode colours the solution path only.",
+      packing: "By size colours each circle (and its inner ring) by radius.",
+      moire: "Single keeps the two gratings on their own pens — that colour separation is the effect. Other modes recolour both gratings together.",
+      contours: "By order runs through the contour levels in the order they are drawn, low to high.",
+      surface3d: "By direction separates the u-line and v-line families; By position colours by depth, front darkest.",
+      hatch: "Hatch lines are coloured by tone band — each darkness level gets its own pen, lightest sky blue to darkest black.",
+      rd: "By order runs through the contour bands in the order they are drawn.",
+      voronoi: "By size colours each edge by the area of the cell it borders."
+    };
+    // Palette walks through the 8 BIC pens.
+    var GRADIENT_PENS = [0, 6, 5, 3, 4, 1, 2, 7]; // black → blue → turquoise → sky → lime → red → pink → violet
+    var WHEEL_PENS = [1, 4, 5, 3, 6, 7, 2, 0];    // hue wheel for direction
+    var TONE_PENS = [3, 4, 5, 6, 2, 7, 1, 0];     // light → dark, for tone bands and depth
+
+    var OUTPUT_PARAMS = {
+      margin: R("Margin", 2, 18, 0.5, 6, "mm"),
+      simplify: R("Simplify tolerance", 0, 0.2, 0.01, 0.02, "mm"),
+      join: CHK("Join touching paths (linemerge)", true),
+      joinTol: R("Join tolerance", 0.05, 1, 0.05, 0.3, "mm"),
+      sort: CHK("Sort paths (nearest neighbour)", true),
+      travel: CHK("Show pen-up travel in preview", false),
+      pause: CHK("Pause before each pen layer (!)", false),
+      feed: R("Pen-down speed (for time estimate)", 10, 150, 5, 50, "mm/s")
+    };
+    OUTPUT_PARAMS.margin.note = "Fitted patterns scale into this margin. Flow fields stop at it; tilings, moiré, contours and wave hatch run edge-to-edge by design.";
+
+    /* ================================================================
+       STATE + UI
+       ================================================================ */
+    var state = {
+      pattern: "speedrun",
+      seed: 7,
+      values: {},   // per pattern id: {paramKey: value}
+      pens: {},     // per pattern id: [penIdx,...]
+      colour: {},   // per pattern id: colour mode key
+      penEnabled: [true, true, true, true, true, true, true, true], // global: applies to every pattern, survives pattern switches
+      output: {}
+    };
+    PATTERNS.forEach(function (pat) {
+      state.values[pat.id] = {};
+      Object.keys(pat.params).forEach(function (k) { state.values[pat.id][k] = pat.params[k].def; });
+      state.pens[pat.id] = pat.pens.map(function (s) { return s.def; });
+      state.colour[pat.id] = COLOUR_DEFAULTS[pat.id] || "single";
+    });
+    Object.keys(OUTPUT_PARAMS).forEach(function (k) { state.output[k] = OUTPUT_PARAMS[k].def; });
+
+    var currentStrokes = [];
+    var currentStats = null;
+    var regenTimer = null;
+    var generating = false;
+
+    function el(id) { return document.getElementById(id); }
+
+    function buildPatternGrid() {
+      var grid = el("patternGrid");
+      grid.innerHTML = "";
+      PATTERNS.forEach(function (pat) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "pattern-btn" + (pat.wide ? " wide" : "") + (pat.id === state.pattern ? " active" : "");
+        b.innerHTML = "<span class=\"dot\"></span>" + pat.name;
+        b.addEventListener("click", function () {
+          state.pattern = pat.id;
+          buildPatternGrid(); buildParams(); buildPens(); buildColour(); buildDesc(); scheduleRegen(0);
+        });
+        grid.appendChild(b);
+      });
+    }
+
+    function paramControl(schema, get, set, container) {
+      Object.keys(schema).forEach(function (key) {
+        var sch = schema[key];
+        var wrap = document.createElement("div");
+        wrap.className = "param";
+        if (sch.type === "range") {
+          var head = document.createElement("div");
+          head.className = "param-head";
+          var lab = document.createElement("label");
+          lab.textContent = sch.label;
+          var val = document.createElement("span");
+          val.className = "param-val";
+          function fmt() {
+            var v = get(key);
+            var txt = (sch.step < 1 && sch.step > 0) ? Number(v).toFixed(sch.step < 0.01 ? 4 : sch.step < 0.1 ? 3 : 2) : String(Math.round(v * 100) / 100);
+            val.textContent = txt + (sch.unit ? " " + sch.unit : "");
+          }
+          fmt();
+          head.appendChild(lab); head.appendChild(val);
+          var input = document.createElement("input");
+          input.type = "range"; input.min = sch.min; input.max = sch.max; input.step = sch.step; input.value = get(key);
+          input.setAttribute("aria-label", sch.label);
+          input.addEventListener("input", function () { set(key, parseFloat(input.value)); fmt(); scheduleRegen(40); });
+          wrap.appendChild(head); wrap.appendChild(input);
+          if (sch.note) {
+            var nt = document.createElement("div");
+            nt.className = "param-note"; nt.textContent = sch.note;
+            wrap.appendChild(nt);
+          }
+        } else if (sch.type === "select") {
+          var head2 = document.createElement("div");
+          head2.className = "param-head";
+          var lab2 = document.createElement("label");
+          lab2.textContent = sch.label;
+          head2.appendChild(lab2);
+          var sel = document.createElement("select");
+          sel.setAttribute("aria-label", sch.label);
+          sch.options.forEach(function (opt) {
+            var o = document.createElement("option");
+            o.value = opt[0]; o.textContent = opt[1];
+            if (String(get(key)) === String(opt[0])) o.selected = true;
+            sel.appendChild(o);
+          });
+          sel.addEventListener("change", function () { set(key, sel.value); scheduleRegen(0); refreshReadout(); });
+          wrap.appendChild(head2); wrap.appendChild(sel);
+        } else if (sch.type === "check") {
+          var labc = document.createElement("label");
+          labc.className = "param-check";
+          var cb = document.createElement("input");
+          cb.type = "checkbox"; cb.checked = !!get(key);
+          cb.addEventListener("change", function () { set(key, cb.checked); scheduleRegen(0); });
+          var sp = document.createElement("span");
+          sp.textContent = sch.label;
+          labc.appendChild(cb); labc.appendChild(sp);
+          wrap.appendChild(labc);
+        }
+        container.appendChild(wrap);
+      });
+    }
+
+    function currentPattern() {
+      return PATTERNS.filter(function (p) { return p.id === state.pattern; })[0];
+    }
+    function buildParams() {
+      var pat = currentPattern();
+      el("paramsTitle").textContent = pat.name + " — parameters";
+      var box = el("paramsBox");
+      box.innerHTML = "";
+      paramControl(pat.params,
+        function (k) { return state.values[pat.id][k]; },
+        function (k, v) { state.values[pat.id][k] = v; },
+        box);
+      var ro = document.createElement("div");
+      ro.className = "param-note"; ro.id = "readoutLine";
+      box.appendChild(ro);
+      refreshReadout();
+      // output controls live in their own section, built once
+    }
+    function refreshReadout() {
+      var pat = currentPattern();
+      var ro = el("readoutLine");
+      if (!ro) return;
+      ro.textContent = pat.readout ? pat.readout(state.values[pat.id]) : "";
+    }
+    function buildOutput() {
+      var box = el("outputBox");
+      box.innerHTML = "";
+      paramControl(OUTPUT_PARAMS,
+        function (k) { return state.output[k]; },
+        function (k, v) { state.output[k] = v; },
+        box);
+    }
+    function buildPens() {
+      var pat = currentPattern();
+      var box = el("penSlots");
+      box.innerHTML = "";
+      pat.pens.forEach(function (slot, si) {
+        var row = document.createElement("div");
+        row.className = "pen-slot";
+        var head = document.createElement("div");
+        head.className = "pen-slot-head";
+        var lab = document.createElement("span");
+        lab.className = "slot-label"; lab.textContent = slot.label;
+        var nm = document.createElement("span");
+        nm.className = "pen-name";
+        var cur = PENS[state.pens[pat.id][si]];
+        nm.textContent = cur.t + " " + cur.name;
+        head.appendChild(lab); head.appendChild(nm);
+        var picker = document.createElement("div");
+        picker.className = "pen-picker";
+        PENS.forEach(function (pen, pi) {
+          var chip = document.createElement("button");
+          chip.type = "button";
+          chip.className = "pen-chip" + (state.pens[pat.id][si] === pi ? " selected" : "");
+          chip.style.background = pen.hex;
+          chip.title = pen.t + " " + pen.name;
+          chip.setAttribute("aria-label", slot.label + ": " + pen.t + " " + pen.name);
+          chip.addEventListener("click", function () {
+            state.pens[pat.id][si] = pi;
+            buildPens(); scheduleRegen(0);
+          });
+          picker.appendChild(chip);
+        });
+        row.appendChild(head); row.appendChild(picker);
+        box.appendChild(row);
+      });
+    }
+    function buildColour() {
+      var pat = currentPattern();
+      var box = el("colourBox");
+      box.innerHTML = "";
+      paramControl({ mode: SEL("Mode", COLOUR_MODES, "single") },
+        function () { return state.colour[pat.id]; },
+        function (k, v) { state.colour[pat.id] = v; },
+        box);
+      var note = document.createElement("div");
+      note.className = "param-note";
+      var specific = COLOUR_NOTES[pat.id];
+      note.textContent = (specific ? specific + " " : "") +
+        "Single uses the pen slots above; every other mode draws from the enabled BIC pens below.";
+      box.appendChild(note);
+      // Pen toggles: one chip per BIC pen. Global state, so the toggles
+      // apply to the current pattern and stay as set when switching patterns.
+      var tTitle = document.createElement("div");
+      tTitle.className = "pen-toggles-title";
+      tTitle.textContent = "Pens in use";
+      box.appendChild(tTitle);
+      var tRow = document.createElement("div");
+      tRow.className = "pen-toggles";
+      tRow.setAttribute("role", "group");
+      tRow.setAttribute("aria-label", "Toggle pens on or off");
+      PENS.forEach(function (pen, pi) {
+        var on = !!state.penEnabled[pi];
+        var chip = document.createElement("button");
+        chip.type = "button";
+        chip.className = "pen-toggle" + (on ? "" : " off");
+        chip.setAttribute("aria-pressed", on ? "true" : "false");
+        chip.setAttribute("aria-label", pen.t + " " + pen.name + (on ? " on" : " off"));
+        chip.title = pen.t + " " + pen.name + (on ? " — on, tap to turn off" : " — off, tap to turn on");
+        var sw = document.createElement("i");
+        sw.style.background = pen.hex;
+        chip.appendChild(sw);
+        var tx = document.createElement("span");
+        tx.className = "pen-toggle-text";
+        tx.textContent = pen.t + " " + pen.name;
+        chip.appendChild(tx);
+        chip.addEventListener("click", function () {
+          if (state.penEnabled[pi]) {
+            var count = 0;
+            state.penEnabled.forEach(function (e) { if (e) count++; });
+            if (count <= 1) {
+              var hint = el("penToggleHint");
+              if (hint) hint.textContent = "At least one pen has to stay on.";
+              return;
+            }
+            state.penEnabled[pi] = false;
+          } else {
+            state.penEnabled[pi] = true;
+          }
+          buildColour();
+          scheduleRegen(0);
+        });
+        tRow.appendChild(chip);
+      });
+      box.appendChild(tRow);
+      var tHint = document.createElement("div");
+      tHint.className = "pen-toggle-hint";
+      tHint.id = "penToggleHint";
+      box.appendChild(tHint);
+      var tNote = document.createElement("div");
+      tNote.className = "param-note";
+      tNote.style.marginTop = "6px";
+      tNote.textContent = "An off pen is left out entirely: multicolour modes give its strokes to the nearest enabled pen, and in Single mode a slot set to an off pen is dropped.";
+      box.appendChild(tNote);
+    }
+    function buildDesc() {
+      el("descBox").innerHTML = currentPattern().desc;
+    }
+
+    /* ---------------- generation pipeline ---------------- */
+    function scheduleRegen(ms) {
+      if (regenTimer) clearTimeout(regenTimer);
+      regenTimer = setTimeout(regenerate, ms || 0);
+    }
+    var regenQueued = false;
+    function regenerate() {
+      if (generating) { regenQueued = true; return; }
+      var pat = currentPattern();
+      var P = Object.assign({}, state.values[pat.id]);
+      var pens = state.pens[pat.id].slice();
+      var ctx = {
+        seed: state.seed,
+        margin: state.output.margin,
+        rand: mulberry32(state.seed * 2654435761 % 2147483647)
+      };
+      generating = true;
+      el("statusLine").textContent = pat.async ? "Simulating…" : "Generating…";
+      function finish(strokes) {
+        generating = false;
+        strokes = applyColourMode(strokes, pat.id, state.colour[pat.id], pens);
+        strokes = postProcess(strokes);
+        currentStrokes = strokes;
+        currentStats = computeStats(strokes);
+        renderPreview();
+        renderStats();
+        el("statusLine").textContent = "";
+        el("statusLine").className = "status-line";
+        if (regenQueued) { regenQueued = false; scheduleRegen(0); }
+      }
+      // Defer the (sometimes heavy) generation so the controls and the
+      // "Generating…" state paint first — the paper is never a silent blank.
+      setTimeout(function () {
+        try {
+          if (pat.async) pat.gen(P, pens, ctx, finish);
+          else finish(pat.gen(P, pens, ctx));
+        } catch (err) { generating = false; regenQueued = false; showError(err); }
+      }, 30);
+    }
+    function showError(err) {
+      el("statusLine").textContent = "Generator error: " + err.message;
+      el("statusLine").className = "status-line error";
+      var msg = el("paperMsg");
+      if (msg) {
+        msg.textContent = "Couldn't generate this pattern: " + err.message;
+        msg.hidden = false;
+      }
+    }
+    /* ---------------- colour engine ---------------- */
+    function bandIdx(t) { return clamp(Math.floor(clamp(t, 0, 1) * 8), 0, 7); }
+    function gradPen(t) { return GRADIENT_PENS[bandIdx(t)]; }
+    /* ---------------- pen toggles ----------------
+       state.penEnabled is the single source of truth. Every pen a
+       colour mode assigns goes through one of the remappers below,
+       so a disabled pen can never reach the preview, the stats or
+       the export, and its strokes are reassigned — never dropped —
+       in multicolour modes. */
+    function enabledPens() {
+      var out = [];
+      for (var i = 0; i < 8; i++) if (state.penEnabled[i]) out.push(i);
+      return out.length ? out : [0]; // the UI keeps >= 1 on; this is only a guard
+    }
+    function penIsEnabled(pen) { return !!state.penEnabled[pen]; }
+    // Nearest enabled pen along a pen sequence (gradient, tone, wheel,
+    // rainbow cycle). Forward neighbour wins ties.
+    function nearestSeqPen(pen, seq, cyclic) {
+      if (penIsEnabled(pen)) return pen;
+      var idx = seq.indexOf(pen);
+      if (idx < 0) return enabledPens()[0];
+      var n = seq.length;
+      for (var off = 1; off < n; off++) {
+        var fwd = cyclic ? seq[(idx + off) % n] : (idx + off < n ? seq[idx + off] : -1);
+        if (fwd >= 0 && penIsEnabled(fwd)) return fwd;
+        var bwd = cyclic ? seq[(idx - off + n) % n] : (idx - off >= 0 ? seq[idx - off] : -1);
+        if (bwd >= 0 && penIsEnabled(bwd)) return bwd;
+      }
+      return enabledPens()[0];
+    }
+    function penRgb(pen) {
+      var h = PENS[pen].hex;
+      return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+    }
+    // Nearest enabled pen by actual colour distance (RGB).
+    function nearestColourPen(pen) {
+      if (penIsEnabled(pen)) return pen;
+      var c = penRgb(pen), best = -1, bestD = Infinity;
+      enabledPens().forEach(function (cand) {
+        var o = penRgb(cand);
+        var d = (o[0] - c[0]) * (o[0] - c[0]) + (o[1] - c[1]) * (o[1] - c[1]) + (o[2] - c[2]) * (o[2] - c[2]);
+        if (d < bestD) { bestD = d; best = cand; }
+      });
+      return best;
+    }
+    var CYCLE_PENS = [0, 1, 2, 3, 4, 5, 6, 7]; // rainbow cycle order (i % 8)
+    function nearestCyclePen(pen) { return nearestSeqPen(pen, CYCLE_PENS, true); }
+    function withPen(s, pen) { return { pen: pen, pts: s.pts, closed: s.closed }; }
+    function strokeCentroid(pts) {
+      var x = 0, y = 0;
+      pts.forEach(function (p) { x += p[0]; y += p[1]; });
+      return [x / pts.length, y / pts.length];
+    }
+    // Split a polyline into chunks of about `chunk` mm of arc length,
+    // consecutive chunks sharing the cut point so the line stays continuous.
+    function splitPts(pts, chunk) {
+      var out = [], cur = [pts[0]], acc = 0;
+      for (var i = 1; i < pts.length; i++) {
+        var a = pts[i - 1], b = pts[i];
+        var segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        var u = 0;
+        while (u < 1) {
+          var remain = segLen * (1 - u);
+          if (acc + remain < chunk || segLen === 0) { cur.push(b); acc += remain; u = 1; }
+          else {
+            var u2 = u + (chunk - acc) / segLen;
+            if (u2 >= 1) { cur.push(b); acc += remain; u = 1; }
+            else {
+              var mid = [a[0] + (b[0] - a[0]) * u2, a[1] + (b[1] - a[1]) * u2];
+              cur.push(mid); out.push(cur); cur = [mid]; acc = 0; u = u2;
+            }
+          }
+        }
+      }
+      if (cur.length > 1) out.push(cur);
+      return out.length ? out : [pts];
+    }
+    // For single-line patterns (and any very long stroke), direction /
+    // position / rainbow / random need the line cut into segments before
+    // colouring, or the whole line would take one pen. Busy patterns keep
+    // one pen per stroke, so a flow streamline keeps its mean direction.
+    function colourChunks(strokes) {
+      var few = strokes.length <= 6;
+      var out = [];
+      strokes.forEach(function (s) {
+        var pts = s.closed ? s.pts.concat([s.pts[0]]) : s.pts;
+        var L = strokeLen(pts);
+        var chunk = 0;
+        if (L > 30 && few) chunk = 24;
+        else if (L > 400) chunk = 80;
+        if (!chunk) { out.push(s); return; }
+        splitPts(pts, chunk).forEach(function (cp) {
+          var ns = { pen: s.pen, pts: cp, closed: false };
+          if (s.size !== undefined) ns.size = s.size;
+          if (s.tone !== undefined) ns.tone = s.tone;
+          if (s.depth !== undefined) ns.depth = s.depth;
+          if (s.group !== undefined) { ns.group = s.group; ns.uvT = s.uvT; }
+          out.push(ns);
+        });
+      });
+      return out;
+    }
+    // Mean undirected direction of a stroke, as a band 0..7.
+    // Doubled-angle averaging, so a line and its reverse agree.
+    function meanAngleBand(pts) {
+      var sx = 0, sy = 0;
+      for (var i = 1; i < pts.length; i++) {
+        var dx = pts[i][0] - pts[i - 1][0], dy = pts[i][1] - pts[i - 1][1];
+        var l = Math.hypot(dx, dy);
+        if (l < 1e-9) continue;
+        var a = Math.atan2(dy, dx);
+        sx += Math.cos(2 * a) * l; sy += Math.sin(2 * a) * l;
+      }
+      var ang = 0.5 * Math.atan2(sy, sx);
+      if (ang < 0) ang += Math.PI;
+      return bandIdx(ang / Math.PI);
+    }
+    // By order: walk the strokes in generation order, splitting any stroke
+    // that crosses one of the 8 equal-ink band boundaries at the exact
+    // interpolated point. Every band change is a real pen change.
+    function colourByOrder(strokes) {
+      var total = 0;
+      strokes.forEach(function (s) { total += strokeLen(s.closed ? s.pts.concat([s.pts[0]]) : s.pts); });
+      if (total <= 0) return strokes;
+      var band = total / 8, acc = 0, out = [];
+      strokes.forEach(function (s) {
+        var pts = s.closed ? s.pts.concat([s.pts[0]]) : s.pts;
+        var curBand = Math.min(7, Math.floor(acc / band));
+        var cur = [pts[0]];
+        for (var i = 1; i < pts.length; i++) {
+          var a = pts[i - 1], b = pts[i];
+          var segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
+          var u = 0;
+          while (u < 1) {
+            var boundary = (curBand + 1) * band;
+            var room = boundary - acc;
+            var remain = segLen * (1 - u);
+            if (curBand === 7 || room >= remain) { cur.push(b); acc += remain; u = 1; }
+            else if (room <= 1e-9) {
+              if (cur.length > 1) out.push({ pen: nearestSeqPen(GRADIENT_PENS[curBand], GRADIENT_PENS, false), pts: cur, closed: false });
+              cur = [cur[cur.length - 1]]; curBand++;
+            } else {
+              var u2 = u + room / segLen;
+              var mid = [a[0] + (b[0] - a[0]) * u2, a[1] + (b[1] - a[1]) * u2];
+              cur.push(mid);
+              out.push({ pen: nearestSeqPen(GRADIENT_PENS[curBand], GRADIENT_PENS, false), pts: cur, closed: false });
+              cur = [mid]; acc = boundary; u = u2; curBand++;
+            }
+          }
+        }
+        if (cur.length > 1) out.push({ pen: nearestSeqPen(GRADIENT_PENS[curBand], GRADIENT_PENS, false), pts: cur, closed: false });
+      });
+      return out;
+    }
+    // By size: feature size comes from generator metadata when present
+    // (circle radius, cell area, tile area), else the stroke's own length
+    // (packing perimeter, Truchet strap length, …). Log-normalised.
+    function colourBySize(strokes) {
+      var vals = strokes.map(function (s) { return s.size !== undefined ? s.size : strokeLen(s.pts); });
+      var mn = Infinity, mx = -Infinity;
+      vals.forEach(function (v) { if (v < mn) mn = v; if (v > mx) mx = v; });
+      return strokes.map(function (s, i) {
+        var t = 0.5;
+        if (mx > mn * 1.02 && mn > 0) t = (Math.log(vals[i]) - Math.log(mn)) / (Math.log(mx) - Math.log(mn));
+        else if (mx > mn) t = (vals[i] - mn) / (mx - mn);
+        return withPen(s, nearestColourPen(gradPen(t)));
+      });
+    }
+    function colourStrokesGeneric(strokes, mode, patId) {
+      if (mode === "order") return colourByOrder(strokes);
+      if (mode === "size") return colourBySize(strokes);
+      var list = colourChunks(strokes);
+      if (mode === "direction") {
+        return list.map(function (s) {
+          // 3D wireframes: direction separates the u-line and v-line families,
+          // each shaded along its own parameter.
+          if (patId === "surface3d" && s.group !== undefined) {
+            var idx = (s.group ? 4 : 0) + clamp(Math.floor(clamp(s.uvT, 0, 1) * 4), 0, 3);
+            return withPen(s, nearestColourPen(GRADIENT_PENS[idx]));
+          }
+          return withPen(s, nearestColourPen(WHEEL_PENS[meanAngleBand(s.pts)]));
+        });
+      }
+      if (mode === "position") {
+        return list.map(function (s) {
+          // 3D wireframes: position across the sheet reads as depth.
+          if (patId === "surface3d" && s.depth !== undefined) return withPen(s, nearestColourPen(TONE_PENS[bandIdx(s.depth)]));
+          var c = strokeCentroid(s.pts);
+          return withPen(s, nearestColourPen(gradPen((c[0] / BED_W + c[1] / BED_H) / 2)));
+        });
+      }
+      if (mode === "rainbow") {
+        return list.map(function (s, i) { return withPen(s, nearestCyclePen(i % 8)); });
+      }
+      if (mode === "random") {
+        var h = 0;
+        for (var ci = 0; ci < patId.length; ci++) h = (h * 31 + patId.charCodeAt(ci)) >>> 0;
+        var rand = mulberry32((state.seed + 1) * 40503 + h);
+        var pool = enabledPens();
+        return list.map(function (s) { return withPen(s, pool[Math.floor(rand() * pool.length)]); });
+      }
+      return list;
+    }
+    function applyColourMode(strokes, patId, mode, slotPens) {
+      if (!strokes.length) return strokes;
+      if (!mode || mode === "single") {
+        // Single: strokes keep their slot pen, so a slot whose pen is
+        // toggled off drops out of preview, stats and export entirely.
+        return strokes.filter(function (s) { return penIsEnabled(s.pen); });
+      }
+      if (patId === "maze") {
+        // Walls are excluded from colouring entirely: they keep their slot
+        // pen untouched in every mode, and only the solution path is
+        // recoloured (split at pen changes by the colour helpers).
+        // Walls are told apart from the solution by the mazeWall tag set
+        // at generation time, never by pen equality — pen equality breaks
+        // when both slots use the same pen, misclassifying every wall as
+        // solution. Untagged strokes fall back to the pen test only when
+        // the two slot pens differ; otherwise they are treated as walls,
+        // so a wall can never be recoloured by mistake.
+        var walls = [], sols = [];
+        strokes.forEach(function (s) {
+          if (s.mazeWall !== undefined) (s.mazeWall ? walls : sols).push(s);
+          else if (slotPens[0] !== slotPens[1] && s.pen === slotPens[1]) sols.push(s);
+          else walls.push(s);
+        });
+        // Walls keep their slot pen, so a toggled-off wall pen drops the
+        // walls (as in Single mode) rather than letting a disabled pen
+        // into the output; the solution is recoloured from enabled pens.
+        walls = walls.filter(function (s) { return penIsEnabled(s.pen); });
+        if (!sols.length) return walls;
+        return walls.concat(colourStrokesGeneric(sols, mode, patId));
+      }
+      if (patId === "hatch") {
+        // Tone is the hatch's real feature: each darkness band gets a pen.
+        if (mode === "rainbow" || mode === "random") return colourStrokesGeneric(strokes, mode, patId);
+        return strokes.map(function (s) {
+          return withPen(s, nearestColourPen(TONE_PENS[bandIdx(s.tone !== undefined ? s.tone : 0.5)]));
+        });
+      }
+      return colourStrokesGeneric(strokes, mode, patId);
+    }
+    function postProcess(strokes) {
+      var out = strokes.filter(function (s) { return s.pts && s.pts.length > 1; });
+      var tol = state.output.simplify;
+      if (tol > 0) {
+        out = out.map(function (s) {
+          return { pen: s.pen, pts: simplifyPts(s.pts, tol), closed: s.closed };
+        }).filter(function (s) { return s.pts.length > 1; });
+      }
+      if (state.output.join) out = linemerge(out, state.output.joinTol);
+      if (state.output.sort) out = sortStrokes(out);
+      return out;
+    }
+    function computeStats(strokes) {
+      var ink = 0, travel = 0, lifts = strokes.length;
+      var perPen = {};
+      var cx = 0, cy = 0;
+      strokes.forEach(function (s) {
+        var L = strokeLen(s.pts);
+        ink += L;
+        perPen[s.pen] = (perPen[s.pen] || 0) + L;
+        var a = s.pts[0];
+        travel += Math.hypot(a[0] - cx, a[1] - cy);
+        var b = s.pts[s.pts.length - 1];
+        cx = b[0]; cy = b[1];
+      });
+      var feed = state.output.feed;
+      var seconds = ink / feed + travel / 200 + lifts * 0.5;
+      return { paths: strokes.length, ink: ink, travel: travel, lifts: lifts, seconds: seconds, perPen: perPen };
+    }
+
+    /* ---------------- preview ---------------- */
+    function fmtPt(p) { return (Math.round(p[0] * 100) / 100) + " " + (Math.round(p[1] * 100) / 100); }
+    function pathD(pts, closed) {
+      var d = "M" + fmtPt(pts[0]);
+      for (var i = 1; i < pts.length; i++) d += "L" + fmtPt(pts[i]);
+      if (closed) d += "Z";
+      return d;
+    }
+    /* Preview is built with createElementNS, not svg.innerHTML: string
+       injection into an SVG element is the one step that can silently
+       yield an empty sheet in some webviews. The preview also draws at
+       0.45 mm instead of the true 0.32 mm pen width — at phone size the
+       real width is ~1 px and fine lines (esp. light pens) drop out.
+       Exported SVGs keep the exact 0.32 mm. */
+    var SVGNS = "http://www.w3.org/2000/svg";
+    var PREVIEW_PEN_WIDTH = 0.45;
+    function svgEl(tag, attrs) {
+      var n = document.createElementNS(SVGNS, tag);
+      Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+      return n;
+    }
+    function renderPreview() {
+      if (anim) stopAnim();
+      var svg = el("preview");
+      while (svg.firstChild) svg.removeChild(svg.firstChild);
+      svg.appendChild(svgEl("rect", { x: 0, y: 0, width: BED_W, height: BED_H, fill: "#ffffff" }));
+      var m = state.output.margin;
+      svg.appendChild(svgEl("rect", { x: m, y: m, width: BED_W - 2 * m, height: BED_H - 2 * m, fill: "none", stroke: "#d8dce2", "stroke-width": 0.25, "stroke-dasharray": "1.6 1.6" }));
+      if (state.output.travel && currentStrokes.length) {
+        var td = "", cx = 0, cy = 0;
+        currentStrokes.forEach(function (s) {
+          var a = s.pts[0];
+          td += "M" + fmtPt([cx, cy]) + "L" + fmtPt(a);
+          var b = s.pts[s.pts.length - 1]; cx = b[0]; cy = b[1];
+        });
+        svg.appendChild(svgEl("path", { d: td, fill: "none", stroke: "#c3c9d1", "stroke-width": 0.22, "stroke-dasharray": "1.2 1.2" }));
+      }
+      var byPen = {};
+      currentStrokes.forEach(function (s) { (byPen[s.pen] = byPen[s.pen] || []).push(s); });
+      Object.keys(byPen).map(Number).sort(function (a, b) { return a - b; }).forEach(function (pen) {
+        var d = byPen[pen].map(function (s) { return pathD(s.pts, s.closed); }).join("");
+        var p = svgEl("path", { d: d, fill: "none", stroke: PENS[pen].hex, "stroke-width": PREVIEW_PEN_WIDTH, "stroke-linecap": "round", "stroke-linejoin": "round" });
+        p.setAttribute("class", "pen-path");
+        p.setAttribute("data-pen", pen);
+        svg.appendChild(p);
+      });
+      var msg = el("paperMsg");
+      if (msg) {
+        if (!currentStrokes.length) {
+          msg.textContent = "This pattern produced no paths with these settings — try a different seed or parameters.";
+          msg.hidden = false;
+        } else {
+          msg.hidden = true;
+        }
+      }
+    }
+    function renderStats() {
+      var st = currentStats;
+      var box = el("statsBox");
+      if (!st) { box.innerHTML = ""; return; }
+      var totalSec = Math.round(st.seconds);
+      var timeTxt = totalSec >= 3600 ? (Math.floor(totalSec / 3600) + "h " + String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0") + "m")
+        : (Math.floor(totalSec / 60) + ":" + String(totalSec % 60).padStart(2, "0"));
+      var longWarn = st.seconds > 25 * 60;
+      var html = "";
+      html += statHtml(st.paths, "", "Paths");
+      html += statHtml((st.ink / 1000).toFixed(2), " m", "Ink length");
+      html += statHtml(st.lifts, "", "Pen lifts");
+      html += statHtml((st.travel / 1000).toFixed(2), " m", "Pen-up travel");
+      html += "<div class=\"stat" + (longWarn ? " warn" : "") + "\"><span class=\"v\">~" + timeTxt + "</span><span class=\"k\">Est. plot time</span></div>";
+      html += "<div class=\"spacer\"></div>";
+      html += "<div class=\"pen-breakdown\">";
+      Object.keys(st.perPen).map(Number).sort(function (a, b) { return a - b; }).forEach(function (pen) {
+        html += "<span class=\"pen-tag\"><i style=\"background:" + PENS[pen].hex + "\"></i>" + PENS[pen].t + " " + (st.perPen[pen] / 1000).toFixed(2) + " m</span>";
+      });
+      html += "</div>";
+      box.innerHTML = html;
+      el("exportHint").textContent = "Estimate at " + state.output.feed + " mm/s pen-down, 200 mm/s pen-up, 0.5 s per lift — your planner will differ; treat as a rough guide." +
+        (longWarn ? " Long plot: over 25 minutes at these settings." : "");
+      function statHtml(v, unit, k) {
+        return "<div class=\"stat\"><span class=\"v\">" + v + "<small>" + unit + "</small></span><span class=\"k\">" + k + "</span></div>";
+      }
+    }
+
+    /* ---------------- SVG export ---------------- */
+    function buildExportSVG() {
+      var byPen = {};
+      currentStrokes.forEach(function (s) { (byPen[s.pen] = byPen[s.pen] || []).push(s); });
+      var st = currentStats;
+      if (!st || !currentStrokes.length) return "";
+      var lines = [];
+      lines.push("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+      lines.push("<!-- Plotter Geometry Generator · " + currentPattern().name + " · seed " + state.seed +
+        " · " + st.paths + " paths · " + (st.ink / 1000).toFixed(2) + " m ink · " + st.lifts + " lifts -->");
+      lines.push("<svg xmlns=\"http://www.w3.org/2000/svg\" xmlns:inkscape=\"http://www.inkscape.org/namespaces/inkscape\" width=\"118mm\" height=\"140mm\" viewBox=\"0 0 118 140\">");
+      Object.keys(byPen).map(Number).sort(function (a, b) { return a - b; }).forEach(function (pen, gi) {
+        var label = (state.output.pause && gi > 0 ? "!" : "") + (pen + 1) + " " + PENS[pen].name;
+        lines.push("  <g inkscape:groupmode=\"layer\" inkscape:label=\"" + label + "\" id=\"pen-" + PENS[pen].t + "\">");
+        byPen[pen].forEach(function (s) {
+          lines.push("    <path d=\"" + pathD(s.pts, s.closed) + "\" fill=\"none\" stroke=\"" + PENS[pen].hex + "\" stroke-width=\"" + PEN_WIDTH + "\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>");
+        });
+        lines.push("  </g>");
+      });
+      lines.push("</svg>");
+      return lines.join("\n");
+    }
+    el("downloadBtn").addEventListener("click", function () {
+      var svg = buildExportSVG();
+      if (!svg) return;
+      var blob = new Blob([svg], { type: "image/svg+xml" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "plotter-" + state.pattern + "-seed" + state.seed + ".svg";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    });
+    el("copyBtn").addEventListener("click", function () {
+      var svg = buildExportSVG();
+      if (!svg) return;
+      var btn = el("copyBtn");
+      function done(ok) {
+        btn.textContent = ok ? "Copied" : "Copy failed";
+        setTimeout(function () { btn.textContent = "Copy SVG"; }, 1600);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(svg).then(function () { done(true); }, function () { done(false); });
+      } else done(false);
+    });
+
+    /* ---------------- plot preview animation ---------------- */
+    var anim = null;
+    el("playBtn").addEventListener("click", function () {
+      if (anim) { stopAnim(); return; }
+      var paths = Array.prototype.slice.call(document.querySelectorAll("#preview .pen-path"));
+      if (!paths.length) return;
+      var totalInk = currentStats ? currentStats.ink : 0;
+      if (!totalInk) return;
+      var speed = 500; // mm/s simulated
+      var duration = Math.max(1500, totalInk / speed * 1000);
+      var lens = paths.map(function (p) {
+        var L = 0;
+        try { L = p.getTotalLength(); } catch (e) { L = 0; }
+        return L;
+      });
+      var total = lens.reduce(function (a, b) { return a + b; }, 0);
+      if (!total) return;
+      paths.forEach(function (p, i) {
+        p.style.strokeDasharray = lens[i] + " " + lens[i];
+        p.style.strokeDashoffset = lens[i];
+      });
+      el("playBtn").textContent = "■ Stop preview";
+      var t0 = performance.now();
+      function frame(now) {
+        var frac = Math.min(1, (now - t0) / duration);
+        var target = frac * total, acc = 0;
+        paths.forEach(function (p, i) {
+          var local = clamp((target - acc) / (lens[i] || 1), 0, 1);
+          p.style.strokeDashoffset = lens[i] * (1 - local);
+          acc += lens[i];
+        });
+        if (frac < 1) anim = requestAnimationFrame(frame);
+        else stopAnim();
+      }
+      anim = requestAnimationFrame(frame);
+    });
+    function stopAnim() {
+      if (anim) cancelAnimationFrame(anim);
+      anim = null;
+      Array.prototype.forEach.call(document.querySelectorAll("#preview .pen-path"), function (p) {
+        p.style.strokeDasharray = "none";
+        p.style.strokeDashoffset = "0";
+      });
+      el("playBtn").textContent = "▶ Preview plot";
+    }
+
+    /* ---------------- seed controls ---------------- */
+    el("seedInput").addEventListener("change", function () {
+      var v = parseInt(el("seedInput").value, 10);
+      if (!isNaN(v)) { state.seed = Math.abs(v); scheduleRegen(0); }
+    });
+    el("seedDice").addEventListener("click", function () {
+      state.seed = (Math.random() * 99999) | 0;
+      el("seedInput").value = state.seed;
+      scheduleRegen(0);
+    });
+
+    /* ---------------- init ---------------- */
+    buildPatternGrid();
+    buildParams();
+    buildOutput();
+    buildPens();
+    buildColour();
+    buildDesc();
+    regenerate();
+    </script>
+  </body>
+</html>
